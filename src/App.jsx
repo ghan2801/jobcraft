@@ -167,19 +167,21 @@ Nice to have:
 We offer competitive salary, equity, and remote-first culture.`;
 
   async function tailorResume() {
+   
+    
     setLoading(true);
     setError("");
     try {
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "content-type": "application/json",
           "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY,
           "anthropic-version": "2023-06-01",
           "anthropic-dangerous-allow-browser": "true"
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: "claude-haiku-4-5-20251001",
           max_tokens: 1000,
           messages: [{
             role: "user",
@@ -230,13 +232,13 @@ ${jd}`
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "content-type": "application/json",
           "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY,
           "anthropic-version": "2023-06-01",
           "anthropic-dangerous-allow-browser": "true"
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: "claude-haiku-4-5-20251001",
           max_tokens: 1000,
           messages: [{
             role: "user",
