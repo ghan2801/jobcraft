@@ -1,4 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { supabase } from "./supabaseClient";
+import Login from "./Login";
 
 const ACCENT = "#00E5A0";
 const DARK = "#0A0F1E";
@@ -116,7 +118,7 @@ function StepIndicator({ current }) {
   );
 }
 
-export default function JobCraft() {
+function JobCraft({ onLogout }) {
   const [step, setStep] = useState(0);
   const [resume, setResume] = useState("");
   const [jd, setJD] = useState("");
@@ -296,7 +298,10 @@ ${jd}`
           <div style={{ width: 32, height: 32, background: ACCENT, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⚡</div>
           <span style={{ fontSize: 20, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>Job<span style={{ color: ACCENT }}>Craft</span></span>
         </div>
-        <Tag color={ACCENT}>Mission HIRED 🔥</Tag>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <Tag color={ACCENT}>Mission HIRED 🔥</Tag>
+          <button onClick={onLogout} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>Sign Out</button>
+        </div>
       </div>
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "48px 24px" }}>
@@ -403,4 +408,28 @@ ${jd}`
       </div>
     </div>
   );
+}
+
+export default function App() {
+  const [session, setSession] = useState(undefined);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+  }
+
+  if (session === undefined) return null;
+  if (!session) return <Login />;
+  return <JobCraft onLogout={handleLogout} />;
 }
