@@ -179,7 +179,7 @@ We offer competitive salary, equity, and remote-first culture.`;
         },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
-          max_tokens: 1000,
+          max_tokens: 4000,
           messages: [{
             role: "user",
             content: `You are an expert resume coach and ATS optimization specialist.
@@ -233,7 +233,7 @@ ${jd}`
         },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
-          max_tokens: 1000,
+          max_tokens: 4000,
           messages: [{
             role: "user",
             content: `Update the tailored resume based on user feedback. Return ONLY JSON.
