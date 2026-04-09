@@ -124,6 +124,7 @@ function JobCraft({ onLogout }) {
   const [jd, setJD] = useState("");
   const [tailored, setTailored] = useState("");
   const [atsScore, setAtsScore] = useState(null);
+  const [originalAtsScore, setOriginalAtsScore] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -190,10 +191,15 @@ TASK: Tailor the resume below to match the job description. Return ONLY a JSON o
 
 JSON format:
 {
+  "original_ats_score": <number 0-100>,
   "tailored_resume": "the full tailored resume text",
   "ats_score": <number 0-100>,
   "key_changes": ["change 1", "change 2", "change 3"]
 }
+
+Where:
+- original_ats_score = how well the ORIGINAL resume matches the JD (before any changes)
+- ats_score = how well the TAILORED resume matches the JD (after optimization)
 
 Rules:
 - Keep the same structure and format as the original resume
@@ -215,6 +221,7 @@ ${jd}`
       const parsed = JSON.parse(clean);
       setTailored(parsed.tailored_resume);
       setAtsScore(parsed.ats_score);
+      setOriginalAtsScore(parsed.original_ats_score);
       setStep(2);
     } catch (e) {
       setError("Something went wrong. Please try again.");
@@ -356,15 +363,26 @@ ${jd}`
         {step === 2 && tailored && (
           <div>
             <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 24, marginBottom: 20, display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                <div style={{ width: 70, height: 70, borderRadius: "50%", background: `conic-gradient(${ACCENT} ${(atsScore || 0) * 3.6}deg, ${BORDER} 0deg)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <div style={{ width: 54, height: 54, borderRadius: "50%", background: CARD, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ fontSize: 16, fontWeight: 800, color: ACCENT }}>{atsScore}%</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+                <div>
+                  <p style={{ fontSize: 11, color: "#6B7FA3", fontFamily: "'DM Mono', monospace", marginBottom: 6, letterSpacing: "0.08em" }}>ATS MATCH SCORE</p>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 22, fontWeight: 800, color: "#FF6B6B", fontFamily: "'DM Mono', monospace" }}>{originalAtsScore ?? "—"}%</span>
+                    <span style={{ fontSize: 18, color: "#4B5A70" }}>→</span>
+                    <span style={{ fontSize: 22, fontWeight: 800, color: ACCENT, fontFamily: "'DM Mono', monospace" }}>{atsScore}%</span>
+                    {originalAtsScore != null && atsScore != null && (
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#FFD166", fontFamily: "'DM Mono', monospace", background: "#FFD16618", border: "1px solid #FFD16640", borderRadius: 6, padding: "2px 8px" }}>
+                        📈 +{atsScore - originalAtsScore} pts
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", gap: 16, marginTop: 4 }}>
+                    <span style={{ fontSize: 10, color: "#FF6B6B", fontFamily: "'DM Mono', monospace" }}>BEFORE</span>
+                    <span style={{ fontSize: 10, color: ACCENT, fontFamily: "'DM Mono', monospace" }}>AFTER</span>
                   </div>
                 </div>
-                <div>
-                  <p style={{ fontSize: 12, color: "#6B7FA3", fontFamily: "'DM Mono', monospace", marginBottom: 4 }}>ATS MATCH SCORE</p>
-                  <p style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>{atsScore >= 80 ? "🔥 Excellent!" : atsScore >= 60 ? "✅ Good match" : "⚠️ Needs work"}</p>
+                <div style={{ borderLeft: `1px solid ${BORDER}`, paddingLeft: 20 }}>
+                  <p style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>{atsScore >= 80 ? "🔥 Excellent!" : atsScore >= 60 ? "✅ Good match" : "⚠️ Needs work"}</p>
                 </div>
               </div>
               <button className="btn-primary" onClick={() => {
@@ -395,7 +413,7 @@ ${jd}`
                     {error && <p style={{ color: "#FF6B6B", fontSize: 13, marginTop: 8 }}>{error}</p>}
                     <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
                       <button className="btn-primary" onClick={refineWithFeedback} disabled={!feedback.trim() || loading} style={{ background: feedback.trim() && !loading ? ACCENT : BORDER, color: feedback.trim() && !loading ? DARK : "#4B5A70", border: "none", borderRadius: 10, padding: "11px 24px", fontSize: 14, fontWeight: 700, cursor: feedback.trim() && !loading ? "pointer" : "not-allowed", fontFamily: "'Syne', sans-serif" }}>✨ Refine</button>
-                      <button className="btn-ghost" onClick={() => { setStep(0); setTailored(""); setAtsScore(null); setResume(""); setJD(""); }} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 10, padding: "11px 22px", fontSize: 14, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>Start Over</button>
+                      <button className="btn-ghost" onClick={() => { setStep(0); setTailored(""); setAtsScore(null); setOriginalAtsScore(null); setResume(""); setJD(""); }} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 10, padding: "11px 22px", fontSize: 14, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>Start Over</button>
                     </div>
                   </div>
                 )}
