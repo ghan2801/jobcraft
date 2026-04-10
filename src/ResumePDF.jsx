@@ -1,175 +1,300 @@
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, Link, Font } from "@react-pdf/renderer";
 
-const ACCENT = "#0A7B5E";
+// Register a TTF font with full Unicode support so "•" renders correctly.
+// Helvetica (built-in PDF font) uses WinAnsi encoding where U+2022 maps to the
+// wrong glyph ("Ë"). An embedded TTF font fixes this permanently.
+Font.register({
+  family: "DejaVu",
+  fonts: [
+    { src: "https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSans.ttf" },
+    { src: "https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSans-Bold.ttf", fontWeight: "bold" },
+  ],
+});
+
+const F = "DejaVu";
 
 const styles = StyleSheet.create({
   page: {
-    fontFamily: "Helvetica",
+    fontFamily: F,
     fontSize: 10,
     color: "#1A1A1A",
     paddingTop: 40,
     paddingBottom: 40,
-    paddingHorizontal: 40,
-    lineHeight: 1.5,
+    paddingLeft: 50,
+    paddingRight: 50,
+    lineHeight: 1.4,
   },
+
+  // ── Header ──────────────────────────────────────────────
   name: {
+    fontFamily: F,
+    fontWeight: "bold",
     fontSize: 18,
-    fontFamily: "Helvetica-Bold",
     color: "#0D0D0D",
     marginBottom: 3,
   },
-  contactLine: {
-    fontSize: 9,
-    color: "#444444",
-    marginBottom: 2,
-    lineHeight: 1.4,
-  },
-  headerDivider: {
-    borderBottomWidth: 1.5,
-    borderBottomColor: ACCENT,
-    marginTop: 10,
-    marginBottom: 14,
-  },
-  section: {
-    marginBottom: 14,
-  },
-  sectionHeaderRow: {
+  jobTitle: {
+    fontFamily: F,
+    fontSize: 12,
+    color: "#333333",
     marginBottom: 5,
   },
-  sectionHeader: {
-    fontSize: 11,
-    fontFamily: "Helvetica-Bold",
-    color: ACCENT,
-    letterSpacing: 0.8,
+  contactText: {
+    fontFamily: F,
+    fontSize: 9,
+    color: "#444444",
+    lineHeight: 1.4,
+  },
+  contactLink: {
+    color: "#1155CC",
+    textDecoration: "underline",
+  },
+  headerGap: {
+    marginBottom: 16,
+  },
+
+  // ── Section headers ──────────────────────────────────────
+  sectionWrap: {
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  sectionTitle: {
+    fontFamily: F,
+    fontWeight: "bold",
+    fontSize: 10,
+    color: "#0D0D0D",
     textTransform: "uppercase",
-    marginBottom: 3,
+    letterSpacing: 0.6,
+    marginBottom: 4,
   },
-  sectionUnderline: {
+  sectionRule: {
     borderBottomWidth: 0.75,
-    borderBottomColor: "#CCCCCC",
-    marginBottom: 7,
+    borderBottomColor: "#0D0D0D",
+    marginBottom: 8,
   },
-  bodyText: {
-    fontSize: 10,
-    color: "#1A1A1A",
-    marginBottom: 3,
-    lineHeight: 1.5,
+
+  // ── Experience entries ───────────────────────────────────
+  companyName: {
+    fontFamily: F,
+    fontWeight: "bold",
+    fontSize: 11,
+    color: "#0D0D0D",
+    marginTop: 8,
+    marginBottom: 1,
   },
-  bulletRow: {
+  titleDateRow: {
     flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 3,
   },
-  bulletChar: {
-    fontSize: 10,
-    color: "#1A1A1A",
-    marginRight: 6,
-    lineHeight: 1.5,
-    width: 8,
-  },
-  bulletText: {
+  entryTitle: {
+    fontFamily: F,
+    fontWeight: "bold",
     fontSize: 10,
     color: "#1A1A1A",
     flex: 1,
-    lineHeight: 1.5,
   },
-  entryHeader: {
+  entryDate: {
+    fontFamily: F,
     fontSize: 10,
-    fontFamily: "Helvetica-Bold",
-    color: "#0D0D0D",
-    marginBottom: 1,
-    lineHeight: 1.5,
-  },
-  entrySubtitle: {
-    fontSize: 9,
     color: "#555555",
-    marginBottom: 4,
-    lineHeight: 1.5,
+    textAlign: "right",
+  },
+
+  // ── Bullets ──────────────────────────────────────────────
+  bulletRow: {
+    flexDirection: "row",
+    marginBottom: 6,
+    paddingLeft: 8,
+  },
+  bulletChar: {
+    fontFamily: F,
+    fontSize: 10,
+    color: "#1A1A1A",
+    width: 12,
+    lineHeight: 1.4,
+  },
+  bulletText: {
+    fontFamily: F,
+    fontSize: 10,
+    color: "#1A1A1A",
+    flex: 1,
+    lineHeight: 1.4,
+  },
+
+  // ── Generic body text ────────────────────────────────────
+  bodyText: {
+    fontFamily: F,
+    fontSize: 10,
+    color: "#1A1A1A",
+    marginBottom: 3,
+    lineHeight: 1.4,
   },
 });
+
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+
+function isBulletLine(s) {
+  return /^[-•*]/.test(s.trim()) || /^\d+[.)]\s/.test(s.trim());
+}
+
+function hasDate(s) {
+  return /\b(19|20)\d{2}\b/.test(s) || /\bpresent\b/i.test(s) || /\bcurrent\b/i.test(s);
+}
+
+function hasContactMarker(s) {
+  return /@/.test(s) || /\+?\d[\d\s\-().]{6,}/.test(s) ||
+    /linkedin\.com/i.test(s) || /github\.com/i.test(s) || /^https?:\/\//i.test(s);
+}
+
+/**
+ * Extract a date range from the end of a string.
+ * Returns { date, rest } where rest is the string with the date removed.
+ */
+function extractDate(s) {
+  // Parenthesised date: "something (2019 – Present)"
+  const paren = s.match(/\s*\(([^)]*(?:19|20)\d{2}[^)]*)\)\s*$/);
+  if (paren) {
+    return {
+      date: paren[1].trim(),
+      rest: s.slice(0, s.lastIndexOf("(")).replace(/[-–,\s]+$/, "").trim(),
+    };
+  }
+  // Trailing date: "..., 2019 – 2023" or "... 2019"
+  const trail = s.match(/[,\s–-]+((?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+)?(?:19|20)\d{2}(?:\s*[-–]\s*(?:(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+)?(?:19|20)\d{2}|[Pp]resent|[Cc]urrent))?)\s*$/);
+  if (trail) {
+    return {
+      date: trail[1].trim(),
+      rest: s.slice(0, s.length - trail[0].length).trim(),
+    };
+  }
+  return { date: "", rest: s.trim() };
+}
+
+/**
+ * Parse a single-line entry header into { title, company, date }.
+ * Handles: "Title – Company (Date)", "Company – Title, Date", "Title (Date)"
+ */
+function parseEntryHeader(line) {
+  const { date, rest } = extractDate(line);
+  // Split on em-dash, en-dash, or " | " to find title vs company
+  const parts = rest.split(/\s*[–—|]\s*/);
+  if (parts.length >= 2) {
+    return { title: parts[0].trim(), company: parts.slice(1).join(" – ").trim(), date };
+  }
+  return { title: rest.trim(), company: "", date };
+}
+
+// ─── Resume parser ─────────────────────────────────────────────────────────────
 
 function parseResume(text) {
   const lines = text.split("\n").map((l) => l.trimEnd());
 
-  const sectionKeywords = [
-    "experience",
-    "work experience",
-    "employment history",
-    "employment",
-    "skills",
-    "technical skills",
-    "core competencies",
-    "education",
-    "summary",
-    "professional summary",
-    "objective",
-    "projects",
-    "certifications",
-    "achievements",
-    "awards",
-    "publications",
-    "languages",
-    "interests",
-    "volunteer",
+  const SECTION_KW = [
+    "experience", "work experience", "professional experience",
+    "employment history", "employment",
+    "skills", "technical skills", "core competencies",
+    "education", "academic background",
+    "summary", "professional summary", "profile",
+    "objective", "career objective",
+    "projects", "key projects",
+    "certifications", "achievements", "awards",
+    "publications", "languages", "interests", "volunteer",
   ];
 
   function isSectionHeader(line) {
-    const t = line.trim().toLowerCase().replace(/[:\-–]/g, "").trim();
-    return sectionKeywords.some((k) => t === k || t.startsWith(k));
+    const t = line.trim().toLowerCase().replace(/[:\-–—]/g, "").trim();
+    return SECTION_KW.some((k) => t === k || t === k + "s");
   }
 
-  // First non-empty line is the name
-  let nameIndex = -1;
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trim()) { nameIndex = i; break; }
-  }
+  // Skip leading blank lines
+  let i = 0;
+  while (i < lines.length && !lines[i].trim()) i++;
+  if (i >= lines.length) return { name: "", jobTitle: "", contactItems: [], sections: [] };
 
-  const name = nameIndex >= 0 ? lines[nameIndex].trim() : "";
-  const contactLines = [];
-  const sections = [];
-  let i = nameIndex + 1;
+  // Line 1: name (part before first "|"), remaining |-parts are contact items
+  const firstLineParts = lines[i].trim().split("|").map((p) => p.trim());
+  const name = firstLineParts[0];
+  const contactItems = firstLineParts.slice(1).filter(Boolean);
+  i++;
 
-  // Collect contact lines until the first section header
-  while (i < lines.length) {
-    const l = lines[i].trim();
-    if (isSectionHeader(lines[i])) break;
-    if (l) contactLines.push(l);
-    i++;
-  }
+  let jobTitle = "";
 
-  // Collect sections
-  while (i < lines.length) {
-    if (isSectionHeader(lines[i])) {
-      sections.push({ title: lines[i].trim().replace(/:$/, ""), lines: [] });
-    } else {
-      if (sections.length > 0) {
-        sections[sections.length - 1].lines.push(lines[i]);
+  // Remaining pre-section lines → job title and/or contact items
+  while (i < lines.length && !isSectionHeader(lines[i])) {
+    const trimmed = lines[i].trim();
+    if (trimmed) {
+      if (hasContactMarker(trimmed) || (trimmed.includes("|") && trimmed.split("|").some((p) => hasContactMarker(p.trim())))) {
+        // It's a contact line — split by | and collect
+        trimmed.split("|").forEach((p) => { const t = p.trim(); if (t) contactItems.push(t); });
+      } else if (!jobTitle) {
+        // First non-contact line = job title
+        jobTitle = trimmed;
+      } else {
+        // Extra pre-section text — treat as contact
+        contactItems.push(trimmed);
       }
     }
     i++;
   }
 
-  return { name, contactLines, sections };
-}
-
-function renderSectionBody(bodyLines) {
-  // Trim trailing blank lines
-  while (bodyLines.length && !bodyLines[bodyLines.length - 1].trim()) {
-    bodyLines = bodyLines.slice(0, -1);
+  // Collect sections
+  const sections = [];
+  while (i < lines.length) {
+    if (isSectionHeader(lines[i])) {
+      sections.push({ title: lines[i].trim().replace(/:$/, ""), lines: [] });
+    } else if (sections.length > 0) {
+      sections[sections.length - 1].lines.push(lines[i]);
+    }
+    i++;
   }
 
-  const isBullet = (s) => /^[-*]/.test(s) || /^\d+[.)]\s/.test(s);
-  const isUnindented = (raw) => !raw.startsWith(" ") && !raw.startsWith("\t");
+  return { name, jobTitle, contactItems, sections };
+}
 
-  // Returns index of next non-empty line, or -1
-  const nextNonEmpty = (lines, from) => {
-    for (let k = from; k < lines.length; k++) {
-      if (lines[k].trim()) return k;
-    }
-    return -1;
-  };
+// ─── Contact row renderer ──────────────────────────────────────────────────────
 
+function ContactRow({ items }) {
+  return (
+    <Text style={styles.contactText}>
+      {items.map((item, idx) => {
+        const isLinkedIn = /linkedin\.com/i.test(item) || /^LinkedIn:/i.test(item);
+        const clean = item.replace(/^LinkedIn:\s*/i, "").trim();
+        const href = isLinkedIn
+          ? (clean.startsWith("http") ? clean : `https://${clean.replace(/^\/+/, "")}`)
+          : "";
+        return (
+          <Text key={idx}>
+            {idx > 0 ? <Text style={{ color: "#888888" }}> | </Text> : null}
+            {isLinkedIn
+              ? <Link src={href} style={styles.contactLink}>{clean}</Link>
+              : <Text>{clean}</Text>}
+          </Text>
+        );
+      })}
+    </Text>
+  );
+}
+
+// ─── Section body renderers ────────────────────────────────────────────────────
+
+function renderBullet(text, key) {
+  return (
+    <View key={key} style={styles.bulletRow}>
+      <Text style={styles.bulletChar}>•</Text>
+      <Text style={styles.bulletText}>{text}</Text>
+    </View>
+  );
+}
+
+/**
+ * Experience section: detects "Title – Company (Date)" or two-line
+ * "Company\nTitle | Date" patterns and renders company bold + title/date row.
+ */
+function renderExperience(bodyLines) {
   const nodes = [];
   let j = 0;
+  let entryIndex = 0;
 
   while (j < bodyLines.length) {
     const raw = bodyLines[j];
@@ -177,93 +302,166 @@ function renderSectionBody(bodyLines) {
 
     if (!trimmed) { j++; continue; }
 
-    if (isBullet(trimmed)) {
-      // Bullet point — use plain hyphen to avoid encoding issues with •
-      const text = trimmed.replace(/^[-*]\s*/, "").replace(/^\d+[.)]\s*/, "");
+    if (isBulletLine(trimmed)) {
+      const text = trimmed.replace(/^[-•*]\s*/, "").replace(/^\d+[.)]\s*/, "");
+      nodes.push(renderBullet(text, `b-${j}`));
+      j++;
+      continue;
+    }
+
+    // Non-bullet unindented line
+    const { title, company, date } = parseEntryHeader(trimmed);
+
+    if (company) {
+      // "Title – Company (Date)" — one combined line
+      if (entryIndex > 0) nodes.push(<View key={`gap-${j}`} style={{ marginTop: 2 }} />);
+      nodes.push(<Text key={`co-${j}`} style={styles.companyName}>{company}</Text>);
       nodes.push(
-        <View key={j} style={styles.bulletRow}>
-          <Text style={styles.bulletChar}>-</Text>
-          <Text style={styles.bulletText}>{text}</Text>
+        <View key={`td-${j}`} style={styles.titleDateRow}>
+          <Text style={styles.entryTitle}>{title}</Text>
+          {date ? <Text style={styles.entryDate}>{date}</Text> : null}
+        </View>
+      );
+      entryIndex++;
+      j++;
+      continue;
+    }
+
+    if (!company && date) {
+      // "Title, Date" or "Title (Date)" — no separate company
+      nodes.push(
+        <View key={`td-${j}`} style={styles.titleDateRow}>
+          <Text style={styles.entryTitle}>{title}</Text>
+          <Text style={styles.entryDate}>{date}</Text>
         </View>
       );
       j++;
       continue;
     }
 
-    if (isUnindented(raw)) {
-      // Check what follows to decide how to render this line
-      const nextIdx = nextNonEmpty(bodyLines, j + 1);
-      const nextRaw = nextIdx >= 0 ? bodyLines[nextIdx] : "";
-      const nextTrimmed = nextRaw.trim();
-      const nextIsBullet = nextTrimmed && isBullet(nextTrimmed);
-      const nextIsUnindented = nextRaw && isUnindented(nextRaw);
+    // No date, no separator — could be a standalone company name.
+    // Peek at next non-empty line: if it has a date, treat this as company + that as title/date.
+    let k = j + 1;
+    while (k < bodyLines.length && !bodyLines[k].trim()) k++;
+    const nextTrimmed = k < bodyLines.length ? bodyLines[k].trim() : "";
 
-      // If line contains a separator, split into header + subtitle on one entry
-      if (/[–|]/.test(trimmed) || (trimmed.includes(" - ") && trimmed.split(" - ").length === 2)) {
-        const parts = trimmed.split(/\s*[–|]\s*|\s+-\s+/);
-        nodes.push(<Text key={j} style={styles.entryHeader}>{parts[0].trim()}</Text>);
-        if (parts.length > 1) {
-          nodes.push(
-            <Text key={`${j}-sub`} style={styles.entrySubtitle}>{parts.slice(1).join(" - ")}</Text>
-          );
-        }
-        j++;
-        continue;
-      }
-
-      // No separator: if followed by bullets → standalone entry header
-      // If followed by another short unindented line (e.g. institution + date on next line) → header + subtitle
-      if (nextIsBullet || !nextTrimmed) {
-        nodes.push(<Text key={j} style={styles.entryHeader}>{trimmed}</Text>);
-        j++;
-        continue;
-      }
-
-      if (nextIsUnindented && !isBullet(nextTrimmed) && nextTrimmed.length < 80) {
-        // Treat current line as entry header, next as subtitle (handles split education dates)
-        nodes.push(<Text key={j} style={styles.entryHeader}>{trimmed}</Text>);
-        nodes.push(<Text key={`${j}-sub`} style={styles.entrySubtitle}>{nextTrimmed}</Text>);
-        j = nextIdx + 1;
-        continue;
-      }
-
-      // Default: plain body text
-      nodes.push(<Text key={j} style={styles.bodyText}>{trimmed}</Text>);
-      j++;
+    if (nextTrimmed && !isBulletLine(nextTrimmed) && hasDate(nextTrimmed)) {
+      // Two-line format: company on this line, title+date on next
+      if (entryIndex > 0) nodes.push(<View key={`gap-${j}`} style={{ marginTop: 2 }} />);
+      nodes.push(<Text key={`co-${j}`} style={styles.companyName}>{title}</Text>);
+      const next = parseEntryHeader(nextTrimmed);
+      nodes.push(
+        <View key={`td-${j}-n`} style={styles.titleDateRow}>
+          <Text style={styles.entryTitle}>{next.title || next.company}</Text>
+          {next.date ? <Text style={styles.entryDate}>{next.date}</Text> : null}
+        </View>
+      );
+      entryIndex++;
+      j = k + 1;
       continue;
     }
 
-    // Indented line → body text
-    nodes.push(<Text key={j} style={styles.bodyText}>{trimmed}</Text>);
+    // Fallback: render as bold company/header line
+    if (entryIndex > 0) nodes.push(<View key={`gap-${j}`} style={{ marginTop: 2 }} />);
+    nodes.push(<Text key={`hd-${j}`} style={styles.companyName}>{title}</Text>);
+    entryIndex++;
     j++;
   }
 
   return nodes;
 }
 
+/**
+ * Education section: collect consecutive non-bullet lines and join them
+ * onto a single line (Degree, University, Year), so dates never break awkwardly.
+ */
+function renderEducation(bodyLines) {
+  const nodes = [];
+  let j = 0;
+  let pending = [];
+
+  const flushPending = (key) => {
+    if (pending.length) {
+      nodes.push(<Text key={key} style={styles.bodyText}>{pending.join("  |  ")}</Text>);
+      pending = [];
+    }
+  };
+
+  while (j < bodyLines.length) {
+    const raw = bodyLines[j];
+    const trimmed = raw.trim();
+
+    if (!trimmed) {
+      flushPending(`edu-flush-${j}`);
+      j++;
+      continue;
+    }
+
+    if (isBulletLine(trimmed)) {
+      flushPending(`edu-flush-b-${j}`);
+      const text = trimmed.replace(/^[-•*]\s*/, "").replace(/^\d+[.)]\s*/, "");
+      nodes.push(renderBullet(text, `edu-b-${j}`));
+    } else {
+      pending.push(trimmed);
+    }
+    j++;
+  }
+  flushPending("edu-end");
+
+  return nodes;
+}
+
+/**
+ * Generic renderer used for Skills, Summary, Certifications, etc.
+ */
+function renderGeneric(bodyLines) {
+  const nodes = [];
+  bodyLines.forEach((raw, j) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    if (isBulletLine(trimmed)) {
+      const text = trimmed.replace(/^[-•*]\s*/, "").replace(/^\d+[.)]\s*/, "");
+      nodes.push(renderBullet(text, `g-${j}`));
+    } else {
+      nodes.push(<Text key={j} style={styles.bodyText}>{trimmed}</Text>);
+    }
+  });
+  return nodes;
+}
+
+function renderSection(sec) {
+  const t = sec.title.toLowerCase();
+  if (/experience|employment|work/.test(t)) return renderExperience(sec.lines);
+  if (/education|academic/.test(t)) return renderEducation(sec.lines);
+  return renderGeneric(sec.lines);
+}
+
+// ─── Main component ────────────────────────────────────────────────────────────
+
 export function ResumePDF({ resumeText }) {
-  const { name, contactLines, sections } = parseResume(resumeText);
+  const { name, jobTitle, contactItems, sections } = parseResume(resumeText);
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
+
+        {/* ── Header ── */}
         {name ? <Text style={styles.name}>{name}</Text> : null}
+        {jobTitle ? <Text style={styles.jobTitle}>{jobTitle}</Text> : null}
+        {contactItems.length > 0 ? <ContactRow items={contactItems} /> : null}
+        <View style={styles.headerGap} />
 
-        {contactLines.map((line, i) => (
-          <Text key={i} style={styles.contactLine}>{line}</Text>
-        ))}
-
-        <View style={styles.headerDivider} />
-
-        {sections.map((sec, si) => (
-          <View key={si} style={styles.section}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionHeader}>{sec.title}</Text>
-              <View style={styles.sectionUnderline} />
+        {/* ── Sections ── */}
+        {sections.map((sec, i) => (
+          <View key={i}>
+            <View style={styles.sectionWrap}>
+              <Text style={styles.sectionTitle}>{sec.title}</Text>
+              <View style={styles.sectionRule} />
             </View>
-            {renderSectionBody(sec.lines)}
+            {renderSection(sec)}
           </View>
         ))}
+
       </Page>
     </Document>
   );
