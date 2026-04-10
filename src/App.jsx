@@ -400,8 +400,11 @@ ${jd}`
                 fileName={(() => {
                   const namePart = tailored.split("\n").find(l => l.trim())?.trim().split(/\s+/).slice(0, 2).join("") || "Resume";
                   const titlePart = jobTitle.replace(/\s+/g, "") || "Role";
-                  const companyPart = companyName.replace(/\s+/g, "") || "Company";
-                  return `${namePart}_${titlePart}_${companyPart}.pdf`;
+                  const cleanCompany = companyName.trim();
+                  const hasCompany = cleanCompany && cleanCompany !== "Not specified in JD";
+                  return hasCompany
+                    ? `${namePart}_${titlePart}_${cleanCompany.replace(/\s+/g, "")}.pdf`
+                    : `${namePart}_${titlePart}.pdf`;
                 })()}
                 style={{ marginLeft: "auto", textDecoration: "none" }}
               >
