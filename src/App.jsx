@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from "react";
+import { PDFDownloadLink } from "@react-pdf/renderer";
+import { ResumePDF } from "./ResumePDF";
 import { supabase } from "./supabaseClient";
 import Login from "./Login";
 
@@ -125,6 +127,8 @@ function JobCraft({ onLogout }) {
   const [tailored, setTailored] = useState("");
   const [atsScore, setAtsScore] = useState(null);
   const [originalAtsScore, setOriginalAtsScore] = useState(null);
+  const [jobTitle, setJobTitle] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -194,12 +198,16 @@ JSON format:
   "original_ats_score": <number 0-100>,
   "tailored_resume": "the full tailored resume text",
   "ats_score": <number 0-100>,
-  "key_changes": ["change 1", "change 2", "change 3"]
+  "key_changes": ["change 1", "change 2", "change 3"],
+  "job_title": "exact job title from the JD",
+  "company_name": "company name from the JD"
 }
 
 Where:
 - original_ats_score = how well the ORIGINAL resume matches the JD (before any changes)
 - ats_score = how well the TAILORED resume matches the JD (after optimization)
+- job_title = the job title as stated in the JD (e.g. "Senior Software Engineer")
+- company_name = the hiring company name as stated in the JD (e.g. "Acme Corp")
 
 Rules:
 - Keep the same structure and format as the original resume
@@ -222,6 +230,8 @@ ${jd}`
       setTailored(parsed.tailored_resume);
       setAtsScore(parsed.ats_score);
       setOriginalAtsScore(parsed.original_ats_score);
+      setJobTitle(parsed.job_title || "");
+      setCompanyName(parsed.company_name || "");
       setStep(2);
     } catch (e) {
       setError("Something went wrong. Please try again.");
@@ -385,13 +395,22 @@ ${jd}`
                   <p style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>{atsScore >= 80 ? "🔥 Excellent!" : atsScore >= 60 ? "✅ Good match" : "⚠️ Needs work"}</p>
                 </div>
               </div>
-              <button className="btn-primary" onClick={() => {
-                const blob = new Blob([tailored], { type: "text/plain" });
-                const a = document.createElement("a");
-                a.href = URL.createObjectURL(blob);
-                a.download = "tailored_resume.txt";
-                a.click();
-              }} style={{ background: ACCENT, color: DARK, border: "none", borderRadius: 10, padding: "12px 22px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif", marginLeft: "auto" }}>⬇ Download Resume</button>
+              <PDFDownloadLink
+                document={<ResumePDF resumeText={tailored} />}
+                fileName={(() => {
+                  const namePart = tailored.split("\n").find(l => l.trim())?.trim().split(/\s+/).slice(0, 2).join("") || "Resume";
+                  const titlePart = jobTitle.replace(/\s+/g, "") || "Role";
+                  const companyPart = companyName.replace(/\s+/g, "") || "Company";
+                  return `${namePart}_${titlePart}_${companyPart}.pdf`;
+                })()}
+                style={{ marginLeft: "auto", textDecoration: "none" }}
+              >
+                {({ loading: pdfLoading }) => (
+                  <button className="btn-primary" style={{ background: ACCENT, color: DARK, border: "none", borderRadius: 10, padding: "12px 22px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>
+                    {pdfLoading ? "⏳ Building PDF…" : "⬇ Download PDF"}
+                  </button>
+                )}
+              </PDFDownloadLink>
             </div>
 
             <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden" }}>
@@ -413,7 +432,7 @@ ${jd}`
                     {error && <p style={{ color: "#FF6B6B", fontSize: 13, marginTop: 8 }}>{error}</p>}
                     <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
                       <button className="btn-primary" onClick={refineWithFeedback} disabled={!feedback.trim() || loading} style={{ background: feedback.trim() && !loading ? ACCENT : BORDER, color: feedback.trim() && !loading ? DARK : "#4B5A70", border: "none", borderRadius: 10, padding: "11px 24px", fontSize: 14, fontWeight: 700, cursor: feedback.trim() && !loading ? "pointer" : "not-allowed", fontFamily: "'Syne', sans-serif" }}>✨ Refine</button>
-                      <button className="btn-ghost" onClick={() => { setStep(0); setTailored(""); setAtsScore(null); setOriginalAtsScore(null); setResume(""); setJD(""); }} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 10, padding: "11px 22px", fontSize: 14, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>Start Over</button>
+                      <button className="btn-ghost" onClick={() => { setStep(0); setTailored(""); setAtsScore(null); setOriginalAtsScore(null); setJobTitle(""); setCompanyName(""); setResume(""); setJD(""); }} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 10, padding: "11px 22px", fontSize: 14, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>Start Over</button>
                     </div>
                   </div>
                 )}
