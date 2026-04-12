@@ -6,6 +6,7 @@ import History from "./History";
 import Profile from "./Profile";
 import DiffView from "./DiffView";
 import ChangeSummary from "./ChangeSummary";
+import GapReport from "./GapReport";
 
 const ACCENT = "#00E5A0";
 const DARK = "#0A0F1E";
@@ -95,6 +96,7 @@ function JobCraft({ session, onLogout, onShowHistory, onShowProfile }) {
   const [resumeSource, setResumeSource] = useState("paste");
   const [showWelcome, setShowWelcome] = useState(false);
   const [changeSummary, setChangeSummary] = useState(null);
+  const [gapReport, setGapReport] = useState(null);
   const fileRef = useRef();
 
   useEffect(() => {
@@ -192,7 +194,7 @@ We offer competitive salary, equity, and remote-first culture.`;
         },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
-          max_tokens: 4000,
+          max_tokens: 6000,
           messages: [{
             role: "user",
             content: `You are an expert resume coach and ATS optimization specialist.
@@ -234,6 +236,29 @@ JSON format:
       }
     ],
     "overall_strategy": "one sentence explaining the overall tailoring approach"
+  },
+  "gap_report": {
+    "original_score_reason": "one sentence explaining why the original resume scored low",
+    "strong_matches": ["skill or keyword that already matched well"],
+    "keywords_added": [
+      {
+        "keyword": "keyword name",
+        "frequency_in_jd": <number>,
+        "added_to_resume": true,
+        "added_where": "e.g. Skills and Summary sections"
+      }
+    ],
+    "skills_still_missing": [
+      {
+        "skill": "skill name",
+        "frequency_in_jd": <number>,
+        "importance": "critical/moderate/minor",
+        "reason": "why this matters for the role"
+      }
+    ],
+    "job_fit_score": "high/moderate/low",
+    "job_fit_reason": "one sentence explaining the fit assessment",
+    "recommended_action": "apply_confidently/apply_with_preparation/consider_skipping"
   }
 }
 
@@ -243,6 +268,7 @@ Where:
 - job_title = the job title as stated in the JD (e.g. "Senior Software Engineer")
 - company_name = the hiring company name as stated in the JD (e.g. "Acme Corp")
 - change_summary = detailed breakdown of every meaningful change made
+- gap_report = keyword gap analysis comparing resume against JD requirements
 
 Rules:
 - Keep the same structure and format as the original resume
@@ -268,6 +294,7 @@ ${jd}`
       setJobTitle(parsed.job_title || "");
       setCompanyName(parsed.company_name || "");
       setChangeSummary(parsed.change_summary || null);
+      setGapReport(parsed.gap_report || null);
       setStep(2);
       // Save immediately using parsed values — state setters above are async
       saveApplication({
@@ -296,7 +323,7 @@ ${jd}`
         },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
-          max_tokens: 4000,
+          max_tokens: 6000,
           messages: [{
             role: "user",
             content: `Update the tailored resume based on user feedback. Return ONLY JSON.
@@ -559,14 +586,15 @@ ${jd}`
 
             <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden" }}>
               <div style={{ borderBottom: `1px solid ${BORDER}`, display: "flex" }}>
-                {["diff", "tailored", "feedback"].map(tab => (
+                {["diff", "gap", "tailored", "feedback"].map(tab => (
                   <button key={tab} onClick={() => setActiveTab(tab)} style={{ background: "none", border: "none", padding: "14px 22px", fontSize: 13, fontWeight: 600, cursor: "pointer", color: activeTab === tab ? ACCENT : "#4B5A70", borderBottom: activeTab === tab ? `2px solid ${ACCENT}` : "2px solid transparent", fontFamily: "'Syne', sans-serif" }}>
-                    {tab === "diff" ? "📊 Changes" : tab === "tailored" ? "📄 New Resume" : "💬 Refine"}
+                    {tab === "diff" ? "📊 Changes" : tab === "gap" ? "🔍 Gap Report" : tab === "tailored" ? "📄 New Resume" : "💬 Refine"}
                   </button>
                 ))}
               </div>
               <div style={{ padding: 24 }}>
                 {activeTab === "diff" && <ChangeSummary changeSummary={changeSummary} original={resume} tailored={tailored} />}
+                {activeTab === "gap" && <GapReport gapReport={gapReport} originalAtsScore={originalAtsScore} atsScore={atsScore} />}
                 {activeTab === "tailored" && <pre style={{ color: "#CBD5E1", fontSize: 12.5, fontFamily: "'DM Mono', monospace", lineHeight: 1.9, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{tailored}</pre>}
                 {activeTab === "feedback" && (
                   <div>
@@ -576,7 +604,7 @@ ${jd}`
                     {error && <p style={{ color: "#FF6B6B", fontSize: 13, marginTop: 8 }}>{error}</p>}
                     <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
                       <button className="btn-primary" onClick={refineWithFeedback} disabled={!feedback.trim() || loading} style={{ background: feedback.trim() && !loading ? ACCENT : BORDER, color: feedback.trim() && !loading ? DARK : "#4B5A70", border: "none", borderRadius: 10, padding: "11px 24px", fontSize: 14, fontWeight: 700, cursor: feedback.trim() && !loading ? "pointer" : "not-allowed", fontFamily: "'Syne', sans-serif" }}>✨ Refine</button>
-                      <button className="btn-ghost" onClick={() => { setStep(0); setTailored(""); setAtsScore(null); setOriginalAtsScore(null); setJobTitle(""); setCompanyName(""); setResume(""); setJD(""); setChangeSummary(null); }} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 10, padding: "11px 22px", fontSize: 14, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>Start Over</button>
+                      <button className="btn-ghost" onClick={() => { setStep(0); setTailored(""); setAtsScore(null); setOriginalAtsScore(null); setJobTitle(""); setCompanyName(""); setResume(""); setJD(""); setChangeSummary(null); setGapReport(null); }} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 10, padding: "11px 22px", fontSize: 14, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>Start Over</button>
                     </div>
                   </div>
                 )}
