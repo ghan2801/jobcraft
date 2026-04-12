@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { PDFDownloadLink } from "@react-pdf/renderer";
-import { ResumePDF } from "./ResumePDF";
+import { generateResumeHTML } from "./ResumeHTML";
 import { supabase } from "./supabaseClient";
 import Login from "./Login";
 
@@ -395,25 +394,18 @@ ${jd}`
                   <p style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>{atsScore >= 80 ? "🔥 Excellent!" : atsScore >= 60 ? "✅ Good match" : "⚠️ Needs work"}</p>
                 </div>
               </div>
-              <PDFDownloadLink
-                document={<ResumePDF resumeText={tailored} />}
-                fileName={(() => {
-                  const namePart = tailored.split("\n").find(l => l.trim())?.trim().split(/\s+/).slice(0, 2).join("") || "Resume";
-                  const titlePart = jobTitle.replace(/\s+/g, "") || "Role";
-                  const cleanCompany = companyName.trim();
-                  const hasCompany = cleanCompany && cleanCompany !== "Not specified in JD";
-                  return hasCompany
-                    ? `${namePart}_${titlePart}_${cleanCompany.replace(/\s+/g, "")}.pdf`
-                    : `${namePart}_${titlePart}.pdf`;
-                })()}
-                style={{ marginLeft: "auto", textDecoration: "none" }}
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  const html = generateResumeHTML(tailored);
+                  const tab = window.open("", "_blank");
+                  tab.document.write(html);
+                  tab.document.close();
+                }}
+                style={{ marginLeft: "auto", background: ACCENT, color: DARK, border: "none", borderRadius: 10, padding: "12px 22px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}
               >
-                {({ loading: pdfLoading }) => (
-                  <button className="btn-primary" style={{ background: ACCENT, color: DARK, border: "none", borderRadius: 10, padding: "12px 22px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>
-                    {pdfLoading ? "⏳ Building PDF…" : "⬇ Download PDF"}
-                  </button>
-                )}
-              </PDFDownloadLink>
+                ⬇ Preview &amp; Download PDF
+              </button>
             </div>
 
             <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden" }}>
