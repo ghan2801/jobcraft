@@ -3,6 +3,7 @@ import { generateResumeHTML } from "./ResumeHTML";
 import { supabase } from "./supabaseClient";
 import Login from "./Login";
 import History from "./History";
+import Profile from "./Profile";
 
 const ACCENT = "#00E5A0";
 const DARK = "#0A0F1E";
@@ -120,7 +121,7 @@ function StepIndicator({ current }) {
   );
 }
 
-function JobCraft({ session, onLogout, onShowHistory }) {
+function JobCraft({ session, onLogout, onShowHistory, onShowProfile }) {
   const [step, setStep] = useState(0);
   const [resume, setResume] = useState("");
   const [jd, setJD] = useState("");
@@ -134,7 +135,34 @@ function JobCraft({ session, onLogout, onShowHistory }) {
   const [feedback, setFeedback] = useState("");
   const [activeTab, setActiveTab] = useState("diff");
   const [toast, setToast] = useState("");
+  const [profileResume, setProfileResume] = useState("");
+  const [resumeSource, setResumeSource] = useState("paste");
+  const [showWelcome, setShowWelcome] = useState(false);
   const fileRef = useRef();
+
+  useEffect(() => {
+    async function loadProfile() {
+      const { data } = await supabase
+        .from("profiles")
+        .select("base_resume")
+        .eq("id", session.user.id)
+        .single();
+      if (data?.base_resume) {
+        setProfileResume(data.base_resume);
+        setResume(data.base_resume);
+        setResumeSource("profile");
+      } else {
+        setShowWelcome(true);
+      }
+    }
+    loadProfile();
+  }, []);
+
+  function handleSourceChange(src) {
+    setResumeSource(src);
+    if (src === "profile") setResume(profileResume);
+    else if (src === "paste" || src === "upload") setResume("");
+  }
 
   async function saveApplication({ tailoredResume, origAtsScore, newAtsScore, title, company }) {
     try {
@@ -346,6 +374,7 @@ ${jd}`
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Tag color={ACCENT}>Mission HIRED 🔥</Tag>
+          <button onClick={onShowProfile} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>👤 My Profile</button>
           <button onClick={onShowHistory} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>📋 History</button>
           <button onClick={onLogout} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>Sign Out</button>
         </div>
@@ -379,19 +408,106 @@ ${jd}`
         <StepIndicator current={step} />
 
         {step === 0 && (
-          <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 32 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-              <div style={{ width: 28, height: 28, background: `${ACCENT}20`, border: `1px solid ${ACCENT}50`, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>📄</div>
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Your Current Resume</h2>
-            </div>
-            <textarea value={resume} onChange={e => setResume(e.target.value)} placeholder="Paste your resume text here…" style={{ width: "100%", minHeight: 220, background: "#0A0F1E", border: `1px solid ${BORDER}`, borderRadius: 10, padding: 16, color: "#CBD5E1", fontSize: 13, fontFamily: "'DM Mono', monospace", lineHeight: 1.8 }} />
-            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-              <input ref={fileRef} type="file" accept=".txt,.md" onChange={handleFile} style={{ display: "none" }} />
-              <button className="btn-ghost" onClick={() => fileRef.current.click()} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 8, padding: "8px 16px", fontSize: 13, cursor: "pointer" }}>📁 Upload .txt</button>
-              <button className="btn-ghost" onClick={() => setResume(sampleResume)} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 8, padding: "8px 16px", fontSize: 13, cursor: "pointer" }}>✨ Load sample</button>
-            </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
-              <button className="btn-primary" onClick={() => setStep(1)} disabled={!resume.trim()} style={{ background: resume.trim() ? ACCENT : BORDER, color: resume.trim() ? DARK : "#4B5A70", border: "none", borderRadius: 10, padding: "12px 28px", fontSize: 14, fontWeight: 700, cursor: resume.trim() ? "pointer" : "not-allowed", fontFamily: "'Syne', sans-serif" }}>Continue →</button>
+          <div>
+            {/* Welcome banner for new users */}
+            {showWelcome && (
+              <div style={{ background: "#0D1F14", border: `1px solid ${ACCENT}35`, borderRadius: 12, padding: "18px 24px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+                <div>
+                  <p style={{ color: "#fff", fontWeight: 700, fontSize: 15, marginBottom: 4 }}>Welcome to JobCraft! 👋</p>
+                  <p style={{ color: "#6B7FA3", fontSize: 13, lineHeight: 1.6 }}>Save your base resume in your profile so it auto-loads every session.</p>
+                </div>
+                <button
+                  onClick={onShowProfile}
+                  style={{ background: ACCENT, color: DARK, border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif", whiteSpace: "nowrap" }}
+                >Set Up Profile →</button>
+              </div>
+            )}
+
+            <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 32 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+                <div style={{ width: 28, height: 28, background: `${ACCENT}20`, border: `1px solid ${ACCENT}50`, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>📄</div>
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Your Current Resume</h2>
+              </div>
+
+              {/* Source tabs */}
+              <div style={{ display: "flex", marginBottom: 20, borderRadius: 8, overflow: "hidden", border: `1px solid ${BORDER}` }}>
+                {[
+                  { key: "profile", label: "👤 My Profile Resume" },
+                  { key: "paste",   label: "✏️ Paste Text" },
+                  { key: "upload",  label: "📁 Upload File" },
+                ].map(({ key, label }, i, arr) => (
+                  <button
+                    key={key}
+                    onClick={() => handleSourceChange(key)}
+                    style={{
+                      flex: 1, background: resumeSource === key ? `${ACCENT}18` : "transparent",
+                      color: resumeSource === key ? ACCENT : "#6B7FA3",
+                      border: "none", borderRight: i < arr.length - 1 ? `1px solid ${BORDER}` : "none",
+                      padding: "10px 0", fontSize: 12, fontWeight: 600,
+                      cursor: "pointer", fontFamily: "'DM Mono', monospace",
+                      transition: "all 0.15s",
+                    }}
+                  >{label}</button>
+                ))}
+              </div>
+
+              {/* Tab A: Profile Resume */}
+              {resumeSource === "profile" && (
+                <div>
+                  {profileResume ? (
+                    <div>
+                      <div style={{ background: "#0A0F1E", border: `1px solid ${BORDER}`, borderRadius: 10, padding: 16, minHeight: 120, maxHeight: 220, overflow: "auto" }}>
+                        <pre style={{ color: "#6B7FA3", fontSize: 12, fontFamily: "'DM Mono', monospace", lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                          {profileResume.slice(0, 600)}{profileResume.length > 600 ? "\n…" : ""}
+                        </pre>
+                      </div>
+                      <p style={{ color: "#4B5A70", fontSize: 11, fontFamily: "'DM Mono', monospace", marginTop: 8 }}>
+                        {profileResume.length.toLocaleString()} chars ·{" "}
+                        <button onClick={onShowProfile} style={{ background: "none", border: "none", color: ACCENT, fontSize: 11, cursor: "pointer", fontFamily: "'DM Mono', monospace", padding: 0 }}>
+                          Edit in Profile →
+                        </button>
+                      </p>
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: "center", padding: "32px 0" }}>
+                      <p style={{ color: "#6B7FA3", fontSize: 13, marginBottom: 16 }}>No profile resume saved yet.</p>
+                      <button onClick={onShowProfile} style={{ background: ACCENT, color: DARK, border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>Set Up Profile →</button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Tab B: Paste */}
+              {resumeSource === "paste" && (
+                <textarea
+                  value={resume}
+                  onChange={e => setResume(e.target.value)}
+                  placeholder="Paste your resume text here…"
+                  style={{ width: "100%", minHeight: 220, background: "#0A0F1E", border: `1px solid ${BORDER}`, borderRadius: 10, padding: 16, color: "#CBD5E1", fontSize: 13, fontFamily: "'DM Mono', monospace", lineHeight: 1.8 }}
+                />
+              )}
+
+              {/* Tab C: Upload */}
+              {resumeSource === "upload" && (
+                <div style={{ textAlign: "center", padding: "36px 0" }}>
+                  <input ref={fileRef} type="file" accept=".txt,.md" onChange={handleFile} style={{ display: "none" }} />
+                  <button
+                    className="btn-ghost"
+                    onClick={() => fileRef.current.click()}
+                    style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 8, padding: "10px 22px", fontSize: 13, cursor: "pointer" }}
+                  >📁 Choose .txt / .md file</button>
+                  {resume && (
+                    <p style={{ color: ACCENT, fontSize: 12, fontFamily: "'DM Mono', monospace", marginTop: 12 }}>
+                      ✓ File loaded ({resume.length.toLocaleString()} chars)
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20 }}>
+                <button className="btn-ghost" onClick={() => { setResume(sampleResume); setResumeSource("paste"); }} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 8, padding: "8px 16px", fontSize: 13, cursor: "pointer" }}>✨ Load sample</button>
+                <button className="btn-primary" onClick={() => setStep(1)} disabled={!resume.trim()} style={{ background: resume.trim() ? ACCENT : BORDER, color: resume.trim() ? DARK : "#4B5A70", border: "none", borderRadius: 10, padding: "12px 28px", fontSize: 14, fontWeight: 700, cursor: resume.trim() ? "pointer" : "not-allowed", fontFamily: "'Syne', sans-serif" }}>Continue →</button>
+              </div>
             </div>
           </div>
         )}
@@ -491,6 +607,7 @@ ${jd}`
 export default function App() {
   const [session, setSession]           = useState(undefined);
   const [showHistory, setShowHistory]   = useState(false);
+  const [showProfile, setShowProfile]   = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -521,11 +638,22 @@ export default function App() {
     );
   }
 
+  if (showProfile) {
+    return (
+      <Profile
+        session={session}
+        onBack={() => setShowProfile(false)}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
   return (
     <JobCraft
       session={session}
       onLogout={handleLogout}
       onShowHistory={() => setShowHistory(true)}
+      onShowProfile={() => setShowProfile(true)}
     />
   );
 }
