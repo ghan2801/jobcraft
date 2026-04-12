@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { generateResumeHTML } from "./ResumeHTML";
 import { supabase } from "./supabaseClient";
 import Login from "./Login";
+import History from "./History";
 
 const ACCENT = "#00E5A0";
 const DARK = "#0A0F1E";
@@ -119,7 +120,7 @@ function StepIndicator({ current }) {
   );
 }
 
-function JobCraft({ onLogout }) {
+function JobCraft({ session, onLogout, onShowHistory }) {
   const [step, setStep] = useState(0);
   const [resume, setResume] = useState("");
   const [jd, setJD] = useState("");
@@ -132,7 +133,28 @@ function JobCraft({ onLogout }) {
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState("");
   const [activeTab, setActiveTab] = useState("diff");
+  const [toast, setToast] = useState("");
   const fileRef = useRef();
+
+  async function saveApplication({ tailoredResume, origAtsScore, newAtsScore, title, company }) {
+    try {
+      await supabase.from("applications").insert({
+        user_id:            session.user.id,
+        company_name:       company,
+        job_title:          title,
+        original_ats_score: origAtsScore,
+        tailored_ats_score: newAtsScore,
+        tailored_resume:    tailoredResume,
+        original_resume:    resume,
+        job_description:    jd,
+        status:             "Applied",
+      });
+      setToast("Application saved ✓");
+      setTimeout(() => setToast(""), 3000);
+    } catch {
+      // save failure is silent — don't interrupt the user's workflow
+    }
+  }
 
   const sampleResume = `John Doe | john@email.com | LinkedIn: /in/johndoe
 Software Engineer | 5 years experience
@@ -232,6 +254,14 @@ ${jd}`
       setJobTitle(parsed.job_title || "");
       setCompanyName(parsed.company_name || "");
       setStep(2);
+      // Save immediately using parsed values — state setters above are async
+      saveApplication({
+        tailoredResume: parsed.tailored_resume,
+        origAtsScore:   parsed.original_ats_score,
+        newAtsScore:    parsed.ats_score,
+        title:          parsed.job_title   || "",
+        company:        parsed.company_name || "",
+      });
     } catch (e) {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -314,11 +344,27 @@ ${jd}`
           <div style={{ width: 32, height: 32, background: ACCENT, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⚡</div>
           <span style={{ fontSize: 20, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>Job<span style={{ color: ACCENT }}>Craft</span></span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Tag color={ACCENT}>Mission HIRED 🔥</Tag>
+          <button onClick={onShowHistory} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>📋 History</button>
           <button onClick={onLogout} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>Sign Out</button>
         </div>
       </div>
+
+      {/* ── Toast notification ── */}
+      {toast && (
+        <div style={{
+          position: "fixed", bottom: 24, right: 24, zIndex: 999,
+          background: "#052e16", border: "1px solid #00E5A060",
+          color: "#00E5A0", borderRadius: 10, padding: "12px 20px",
+          fontSize: 13, fontFamily: "'DM Mono', monospace", fontWeight: 600,
+          boxShadow: "0 4px 24px #00000060",
+          animation: "fadeInUp 0.25s ease",
+        }}>
+          ✓ {toast}
+        </div>
+      )}
+      <style>{`@keyframes fadeInUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }`}</style>
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "48px 24px" }}>
         <div style={{ textAlign: "center", marginBottom: 52 }}>
@@ -443,7 +489,8 @@ ${jd}`
 }
 
 export default function App() {
-  const [session, setSession] = useState(undefined);
+  const [session, setSession]           = useState(undefined);
+  const [showHistory, setShowHistory]   = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -463,5 +510,22 @@ export default function App() {
 
   if (session === undefined) return null;
   if (!session) return <Login />;
-  return <JobCraft onLogout={handleLogout} />;
+
+  if (showHistory) {
+    return (
+      <History
+        session={session}
+        onBack={() => setShowHistory(false)}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
+  return (
+    <JobCraft
+      session={session}
+      onLogout={handleLogout}
+      onShowHistory={() => setShowHistory(true)}
+    />
+  );
 }
