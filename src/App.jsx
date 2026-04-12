@@ -4,6 +4,8 @@ import { supabase } from "./supabaseClient";
 import Login from "./Login";
 import History from "./History";
 import Profile from "./Profile";
+import DiffView from "./DiffView";
+import ChangeSummary from "./ChangeSummary";
 
 const ACCENT = "#00E5A0";
 const DARK = "#0A0F1E";
@@ -26,6 +28,8 @@ function Tag({ children, color = ACCENT }) {
   );
 }
 
+
+
 function Spinner() {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "40px 0" }}>
@@ -42,55 +46,7 @@ function Spinner() {
   );
 }
 
-function DiffView({ original, tailored }) {
-  const origLines = original.split("\n");
-  const tailLines = tailored.split("\n");
-  const maxLen = Math.max(origLines.length, tailLines.length);
-  const rows = [];
-  for (let i = 0; i < maxLen; i++) {
-    const o = origLines[i] ?? "";
-    const t = tailLines[i] ?? "";
-    const changed = o.trim() !== t.trim();
-    rows.push({ o, t, changed });
-  }
-  const changes = rows.filter(r => r.changed).length;
-  return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-        <span style={{ color: "#fff", fontWeight: 700, fontSize: 15, fontFamily: "'Syne', sans-serif" }}>Resume Diff</span>
-        <Tag color="#FF6B6B">{changes} lines changed</Tag>
-        <Tag color={ACCENT}>ATS Optimized</Tag>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, borderRadius: 8, overflow: "hidden", border: `1px solid ${BORDER}` }}>
-        <div style={{ background: "#0D1117", padding: "10px 14px", borderBottom: `2px solid #FF6B6B40` }}>
-          <span style={{ fontSize: 11, color: "#FF6B6B", fontFamily: "'DM Mono', monospace" }}>ORIGINAL</span>
-        </div>
-        <div style={{ background: "#0D1117", padding: "10px 14px", borderBottom: `2px solid ${ACCENT}40` }}>
-          <span style={{ fontSize: 11, color: ACCENT, fontFamily: "'DM Mono', monospace" }}>TAILORED</span>
-        </div>
-        {rows.map((row, i) => (
-          <>
-            <div key={`o-${i}`} style={{
-              background: row.changed ? "#FF6B6B0A" : "#0A0F1E",
-              padding: "4px 14px",
-              borderRight: `1px solid ${BORDER}`,
-              borderLeft: row.changed ? "3px solid #FF6B6B" : "3px solid transparent",
-            }}>
-              <span style={{ fontSize: 12, color: row.changed ? "#FF9999" : "#4B5A70", fontFamily: "'DM Mono', monospace", whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{row.o || " "}</span>
-            </div>
-            <div key={`t-${i}`} style={{
-              background: row.changed ? `${ACCENT}08` : "#0A0F1E",
-              padding: "4px 14px",
-              borderLeft: row.changed ? `3px solid ${ACCENT}` : "3px solid transparent",
-            }}>
-              <span style={{ fontSize: 12, color: row.changed ? ACCENT : "#4B5A70", fontFamily: "'DM Mono', monospace", whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{row.t || " "}</span>
-            </div>
-          </>
-        ))}
-      </div>
-    </div>
-  );
-}
+
 
 function StepIndicator({ current }) {
   const steps = ["Upload Resume", "Paste JD", "Review & Apply"];
@@ -138,6 +94,7 @@ function JobCraft({ session, onLogout, onShowHistory, onShowProfile }) {
   const [profileResume, setProfileResume] = useState("");
   const [resumeSource, setResumeSource] = useState("paste");
   const [showWelcome, setShowWelcome] = useState(false);
+  const [changeSummary, setChangeSummary] = useState(null);
   const fileRef = useRef();
 
   useEffect(() => {
@@ -249,7 +206,35 @@ JSON format:
   "ats_score": <number 0-100>,
   "key_changes": ["change 1", "change 2", "change 3"],
   "job_title": "exact job title from the JD",
-  "company_name": "company name from the JD"
+  "company_name": "company name from the JD",
+  "change_summary": {
+    "title_change": {
+      "from": "original job title in resume",
+      "to": "new job title in tailored resume",
+      "reason": "why this was changed"
+    },
+    "keywords_added": [
+      {
+        "keyword": "keyword name",
+        "added_where": "e.g. Skills section",
+        "reason": "e.g. appears 3 times in JD"
+      }
+    ],
+    "sections_reframed": [
+      {
+        "section": "section name",
+        "change": "what changed",
+        "reason": "why"
+      }
+    ],
+    "removed_or_deemphasized": [
+      {
+        "item": "what was removed or toned down",
+        "reason": "why it was de-emphasized"
+      }
+    ],
+    "overall_strategy": "one sentence explaining the overall tailoring approach"
+  }
 }
 
 Where:
@@ -257,6 +242,7 @@ Where:
 - ats_score = how well the TAILORED resume matches the JD (after optimization)
 - job_title = the job title as stated in the JD (e.g. "Senior Software Engineer")
 - company_name = the hiring company name as stated in the JD (e.g. "Acme Corp")
+- change_summary = detailed breakdown of every meaningful change made
 
 Rules:
 - Keep the same structure and format as the original resume
@@ -281,6 +267,7 @@ ${jd}`
       setOriginalAtsScore(parsed.original_ats_score);
       setJobTitle(parsed.job_title || "");
       setCompanyName(parsed.company_name || "");
+      setChangeSummary(parsed.change_summary || null);
       setStep(2);
       // Save immediately using parsed values — state setters above are async
       saveApplication({
@@ -579,7 +566,7 @@ ${jd}`
                 ))}
               </div>
               <div style={{ padding: 24 }}>
-                {activeTab === "diff" && <DiffView original={resume} tailored={tailored} />}
+                {activeTab === "diff" && <ChangeSummary changeSummary={changeSummary} original={resume} tailored={tailored} />}
                 {activeTab === "tailored" && <pre style={{ color: "#CBD5E1", fontSize: 12.5, fontFamily: "'DM Mono', monospace", lineHeight: 1.9, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{tailored}</pre>}
                 {activeTab === "feedback" && (
                   <div>
@@ -589,7 +576,7 @@ ${jd}`
                     {error && <p style={{ color: "#FF6B6B", fontSize: 13, marginTop: 8 }}>{error}</p>}
                     <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
                       <button className="btn-primary" onClick={refineWithFeedback} disabled={!feedback.trim() || loading} style={{ background: feedback.trim() && !loading ? ACCENT : BORDER, color: feedback.trim() && !loading ? DARK : "#4B5A70", border: "none", borderRadius: 10, padding: "11px 24px", fontSize: 14, fontWeight: 700, cursor: feedback.trim() && !loading ? "pointer" : "not-allowed", fontFamily: "'Syne', sans-serif" }}>✨ Refine</button>
-                      <button className="btn-ghost" onClick={() => { setStep(0); setTailored(""); setAtsScore(null); setOriginalAtsScore(null); setJobTitle(""); setCompanyName(""); setResume(""); setJD(""); }} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 10, padding: "11px 22px", fontSize: 14, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>Start Over</button>
+                      <button className="btn-ghost" onClick={() => { setStep(0); setTailored(""); setAtsScore(null); setOriginalAtsScore(null); setJobTitle(""); setCompanyName(""); setResume(""); setJD(""); setChangeSummary(null); }} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 10, padding: "11px 22px", fontSize: 14, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>Start Over</button>
                     </div>
                   </div>
                 )}
