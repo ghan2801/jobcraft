@@ -31,88 +31,260 @@ function Tag({ children, color }) {
 
 
 const LOADER_MESSAGES = [
-  "Reading your resume carefully…",
-  "Analyzing the job description…",
-  "Identifying keyword gaps…",
-  "Injecting ATS-optimized terms…",
-  "Reframing your experience bullets…",
-  "Scoring your match against the JD…",
-  "Polishing the final resume…",
-  "Almost done — running final checks…",
+  { emoji: "📄", action: "Reading",     rest: " your resume…" },
+  { emoji: "🔍", action: "Analysing",   rest: " the job description…" },
+  { emoji: "🎯", action: "Identifying", rest: " key requirements…" },
+  { emoji: "✨", action: "Matching",    rest: " your experience…" },
+  { emoji: "🔑", action: "Injecting",   rest: " high-impact keywords…" },
+  { emoji: "📊", action: "Calculating", rest: " your ATS score…" },
+  { emoji: "🔄", action: "Reframing",   rest: " your experience…" },
+  { emoji: "✅", action: "Finalising",  rest: " your tailored resume…" },
 ];
+
+const KEYWORD_PILLS = ["ATS Optimized", "Keywords Added", "Score Boosted", "Gaps Filled", "Impact Enhanced"];
+
+const LEFT_LINES  = [55, 82, 63, 90, 38];
+const RIGHT_LINES = [55, 82, 63, 90, 38];
 
 function LoadingMessages({ isRefine = false }) {
   const { theme, isDark } = useTheme();
-  const [msgIndex, setMsgIndex] = useState(0);
-  const [fade, setFade] = useState(true);
-  const [progress, setProgress] = useState(0);
-  const [done, setDone] = useState(false);
+  const [msgIndex,  setMsgIndex]  = useState(0);
+  const [fade,      setFade]      = useState(true);
+  const [progress,  setProgress]  = useState(0);
+  const [atsPhase,  setAtsPhase]  = useState(0); // 0 = "calculating…", 1 = "boosting…"
+  const [pillIndex, setPillIndex] = useState(0);
   const startTime = useRef(Date.now());
+  const ac = theme.accent;
 
-  // Message cycling: 0-3 play through, then 4-7 loop
+  // Message cycling: play 0-7, then loop from index 4
   useEffect(() => {
     const id = setInterval(() => {
       setFade(false);
       setTimeout(() => {
-        setMsgIndex(prev => {
-          if (prev < LOADER_MESSAGES.length - 1) return prev + 1;
-          return 4; // loop back to message 5 (index 4)
-        });
+        setMsgIndex(prev => (prev < LOADER_MESSAGES.length - 1 ? prev + 1 : 4));
         setFade(true);
       }, 300);
     }, 2500);
     return () => clearInterval(id);
   }, []);
 
-  // Progress bar: 0→85% over 20 seconds
+  // Progress bar: 0 → 85 % over 25 s
   useEffect(() => {
     const id = setInterval(() => {
       const elapsed = (Date.now() - startTime.current) / 1000;
-      const p = Math.min(85, (elapsed / 20) * 85);
-      setProgress(p);
+      setProgress(Math.min(85, (elapsed / 25) * 85));
     }, 100);
     return () => clearInterval(id);
   }, []);
 
-  const msg = isRefine ? LOADER_MESSAGES[msgIndex].replace("Tailoring", "Refining") : LOADER_MESSAGES[msgIndex];
+  // ATS display switches after 15 s
+  useEffect(() => {
+    const id = setTimeout(() => setAtsPhase(1), 15000);
+    return () => clearTimeout(id);
+  }, []);
+
+  // Keyword pill cycling — new pill every 2 s
+  useEffect(() => {
+    const id = setInterval(() => {
+      setPillIndex(prev => (prev + 1) % KEYWORD_PILLS.length);
+    }, 2000);
+    return () => clearInterval(id);
+  }, []);
+
+  const msg = LOADER_MESSAGES[msgIndex];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, padding: "36px 0" }}>
+    <div style={{
+      display: "flex", flexDirection: "column", alignItems: "center",
+      gap: 18, padding: "28px 20px", minHeight: 380,
+    }}>
       <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes fadeMsg { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-        .loader-msg { animation: fadeMsg 0.3s ease; }
+        @keyframes ldr-pulse-glow {
+          0%, 100% { box-shadow: 0 0 14px ${ac}45, 0 0 30px ${ac}20; border-color: ${ac}; }
+          50%       { box-shadow: 0 0 28px ${ac}80, 0 0 56px ${ac}38; border-color: ${ac}; }
+        }
+        @keyframes ldr-shimmer {
+          0%, 100% { opacity: 0.5; transform: scaleX(0.94); }
+          50%       { opacity: 1;   transform: scaleX(1); }
+        }
+        @keyframes ldr-dots {
+          0%        { transform: translateX(-50px); opacity: 0; }
+          20%, 80%  { opacity: 1; }
+          100%      { transform: translateX(50px);  opacity: 0; }
+        }
+        @keyframes ldr-pill {
+          0%   { transform: translate(-50%, 0);   opacity: 0; }
+          18%  { opacity: 1; }
+          72%  { opacity: 1; transform: translate(-50%, -44px); }
+          100% { transform: translate(-50%, -56px); opacity: 0; }
+        }
+        @keyframes ldr-msg {
+          from { opacity: 0; transform: translateY(5px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes ldr-ats-blink {
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0.45; }
+        }
       `}</style>
-      {/* Spinner ring */}
+
+      {/* ── DOCUMENT TRANSFORM SCENE ─────────────────────────── */}
       <div style={{
-        width: 40, height: 40,
-        border: `3px solid ${theme.border}`,
-        borderTop: `3px solid ${theme.accent}`,
-        borderRadius: "50%",
-        animation: "spin 0.8s linear infinite",
-        flexShrink: 0,
-      }} />
-      {/* Message */}
+        position: "relative",
+        display: "flex", alignItems: "center",
+        backgroundImage: `radial-gradient(circle, ${theme.border} 1px, transparent 1px)`,
+        backgroundSize: "18px 18px",
+        borderRadius: 16,
+        padding: "22px 28px 18px",
+      }}>
+
+        {/* LEFT — original (dull) */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7 }}>
+          <div style={{
+            width: 120, height: 160,
+            background: theme.card,
+            border: `1px solid ${theme.border}`,
+            borderRadius: 8,
+            padding: "14px 13px 10px",
+            display: "flex", flexDirection: "column", gap: 9,
+            opacity: 0.6,
+          }}>
+            <div style={{ width: "68%", height: 8, background: theme.textFaint, borderRadius: 3 }} />
+            {LEFT_LINES.map((w, i) => (
+              <div key={i} style={{
+                width: `${w}%`, height: 5,
+                background: theme.border,
+                borderRadius: 2,
+              }} />
+            ))}
+          </div>
+          <span style={{
+            fontSize: 10, color: theme.textMuted,
+            fontFamily: "'DM Mono', monospace", letterSpacing: "0.06em",
+          }}>Your Resume</span>
+        </div>
+
+        {/* ANIMATED ARROW */}
+        <div style={{ width: 72, position: "relative", display: "flex", alignItems: "center", marginBottom: 18 }}>
+          {/* track */}
+          <div style={{
+            position: "absolute", left: 0, right: 10,
+            height: 2, background: `${ac}35`, top: "50%", transform: "translateY(-50%)",
+          }} />
+          {/* moving dots */}
+          {[0, 1, 2].map(i => (
+            <div key={i} style={{
+              position: "absolute", left: "50%", top: "50%",
+              width: 7, height: 7, borderRadius: "50%",
+              background: ac,
+              transform: "translate(-50%, -50%)",
+              animation: `ldr-dots 1.5s ease-in-out infinite`,
+              animationDelay: `${i * 0.5}s`,
+            }} />
+          ))}
+          {/* arrowhead */}
+          <div style={{
+            position: "absolute", right: 0, top: "50%",
+            transform: "translateY(-50%)",
+            width: 0, height: 0,
+            borderTop: "5px solid transparent",
+            borderBottom: "5px solid transparent",
+            borderLeft: `9px solid ${ac}`,
+          }} />
+        </div>
+
+        {/* RIGHT — tailored (glowing) */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7 }}>
+          {/* Keyword pill — floats up on remount via key */}
+          <div style={{ position: "relative", width: 120, height: 36 }}>
+            <div
+              key={pillIndex}
+              style={{
+                position: "absolute", bottom: 0, left: "50%",
+                background: `${ac}18`,
+                color: ac,
+                border: `1px solid ${ac}45`,
+                borderRadius: 20,
+                padding: "3px 9px",
+                fontSize: 9,
+                fontFamily: "'DM Mono', monospace",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+                animation: "ldr-pill 1.85s ease-out forwards",
+              }}
+            >
+              {KEYWORD_PILLS[pillIndex]}
+            </div>
+          </div>
+
+          <div style={{
+            width: 120, height: 160,
+            background: theme.card,
+            border: `2px solid ${ac}`,
+            borderRadius: 8,
+            padding: "14px 13px 10px",
+            display: "flex", flexDirection: "column", gap: 9,
+            animation: "ldr-pulse-glow 2.4s ease-in-out infinite",
+          }}>
+            <div style={{
+              width: "68%", height: 8,
+              background: ac, borderRadius: 3,
+              animation: "ldr-shimmer 1.8s ease-in-out infinite",
+            }} />
+            {RIGHT_LINES.map((w, i) => (
+              <div key={i} style={{
+                width: `${w}%`, height: 5,
+                background: i % 2 === 0 ? `${ac}95` : `${ac}55`,
+                borderRadius: 2,
+                animation: `ldr-shimmer 1.8s ease-in-out infinite`,
+                animationDelay: `${i * 0.28}s`,
+              }} />
+            ))}
+          </div>
+          <span style={{
+            fontSize: 10, color: ac,
+            fontFamily: "'DM Mono', monospace",
+            letterSpacing: "0.06em", fontWeight: 600,
+          }}>{isRefine ? "Refined Resume" : "Tailored Resume"}</span>
+        </div>
+      </div>
+
+      {/* ── CYCLING MESSAGE ───────────────────────────────────── */}
       <p
         key={msgIndex}
-        className="loader-msg"
         style={{
-          color: theme.text, fontSize: 14, fontFamily: "'DM Mono', monospace",
-          fontWeight: 500, textAlign: "center",
+          color: theme.text, fontSize: 15,
+          fontFamily: "'DM Mono', monospace",
+          textAlign: "center", margin: 0,
           opacity: fade ? 1 : 0, transition: "opacity 0.3s",
+          animation: "ldr-msg 0.35s ease",
         }}
-      >{msg}</p>
-      {/* Progress bar */}
-      <div style={{ width: "100%", maxWidth: 320, height: 4, background: theme.border, borderRadius: 4, overflow: "hidden" }}>
+      >
+        <span style={{ marginRight: 6 }}>{msg.emoji}</span>
+        <strong style={{ color: theme.textStrong }}>{msg.action}</strong>
+        {msg.rest}
+      </p>
+
+      {/* ── PROGRESS BAR ─────────────────────────────────────── */}
+      <div style={{
+        width: "100%", maxWidth: 340, height: 3,
+        background: theme.border, borderRadius: 4, overflow: "hidden",
+      }}>
         <div style={{
           height: "100%", width: `${progress}%`,
-          background: theme.accent,
-          borderRadius: 4, transition: "width 0.15s linear",
+          background: ac, borderRadius: 4,
+          transition: "width 0.15s linear",
         }} />
       </div>
-      {/* Subtext */}
-      <p style={{ color: theme.textFaint, fontSize: 11, fontFamily: "'DM Mono', monospace", textAlign: "center" }}>
-        This usually takes 15–20 seconds
+
+      {/* ── ATS COUNTER ──────────────────────────────────────── */}
+      <p style={{
+        color: theme.textMuted, fontSize: 12,
+        fontFamily: "'DM Mono', monospace",
+        textAlign: "center", margin: 0,
+        animation: atsPhase === 1 ? "ldr-ats-blink 1.3s ease-in-out infinite" : "none",
+      }}>
+        {atsPhase === 0 ? "ATS Score: calculating…" : "ATS Score: ██░░ boosting…"}
       </p>
     </div>
   );
@@ -527,7 +699,21 @@ ${changesList}`,
       `}</style>
 
       <div style={{ borderBottom: `1px solid ${theme.border}`, padding: "18px 40px", display: "flex", alignItems: "center", justifyContent: "space-between", background: theme.headerBg, position: "sticky", top: 0, zIndex: 100, boxShadow: isDark ? "none" : "0 1px 4px #0000000A" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div
+          style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}
+          onClick={() => {
+            setStep(0);
+            setTailored("");
+            setAtsScore(null);
+            setOriginalAtsScore(null);
+            setChangeSummary(null);
+            setGapReport(null);
+            setReviewableChanges([]);
+            setAcceptedChanges(new Set());
+            setIsReviewMode(false);
+            setError("");
+          }}
+        >
           <div style={{ width: 32, height: 32, background: theme.accent, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⚡</div>
           <span style={{ fontSize: 20, fontWeight: 800, color: theme.textStrong, letterSpacing: "-0.02em" }}>Job<span style={{ color: theme.accent }}>Craft</span></span>
         </div>
