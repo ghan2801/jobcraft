@@ -1,22 +1,20 @@
 import { useState } from "react";
 import DiffView from "./DiffView";
-
-const ACCENT  = "#00E5A0";
-const CARD    = "#111827";
-const BORDER  = "#1E2D40";
+import { useTheme } from "./ThemeContext";
 
 function SectionCard({ icon, title, children, fullWidth = false }) {
+  const { theme } = useTheme();
   return (
     <div style={{
-      background: CARD,
-      border: `1px solid ${BORDER}`,
+      background: theme.card,
+      border: `1px solid ${theme.border}`,
       borderRadius: 12,
       padding: 20,
       gridColumn: fullWidth ? "1 / -1" : undefined,
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
         <span style={{ fontSize: 16 }}>{icon}</span>
-        <span style={{ fontSize: 13, fontWeight: 700, color: "#fff", fontFamily: "'Syne', sans-serif" }}>{title}</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: theme.textStrong, fontFamily: "'Syne', sans-serif" }}>{title}</span>
       </div>
       {children}
     </div>
@@ -24,11 +22,12 @@ function SectionCard({ icon, title, children, fullWidth = false }) {
 }
 
 function Pill({ children }) {
+  const { theme } = useTheme();
   return (
     <span style={{
-      background: "#00E5A018",
-      color: ACCENT,
-      border: "1px solid #00E5A040",
+      background: theme.accent + "18",
+      color: theme.accent,
+      border: `1px solid ${theme.accent}40`,
       borderRadius: 20,
       padding: "3px 10px",
       fontSize: 12,
@@ -40,11 +39,12 @@ function Pill({ children }) {
 }
 
 export default function ChangeSummary({ changeSummary, original, tailored }) {
+  const { theme } = useTheme();
   const [diffOpen, setDiffOpen] = useState(false);
 
   if (!changeSummary) {
     return (
-      <div style={{ color: "#4B5A70", fontSize: 13, fontFamily: "'DM Mono', monospace", textAlign: "center", padding: "32px 0" }}>
+      <div style={{ color: theme.textFaint, fontSize: 13, fontFamily: "'DM Mono', monospace", textAlign: "center", padding: "32px 0" }}>
         No change summary available.
       </div>
     );
@@ -53,8 +53,8 @@ export default function ChangeSummary({ changeSummary, original, tailored }) {
   const {
     overall_strategy,
     title_change,
-    keywords_added      = [],
-    sections_reframed   = [],
+    keywords_added        = [],
+    sections_reframed     = [],
     removed_or_deemphasized = [],
   } = changeSummary;
 
@@ -69,12 +69,12 @@ export default function ChangeSummary({ changeSummary, original, tailored }) {
         {overall_strategy && (
           <SectionCard icon="🎯" title="Tailoring Strategy" fullWidth>
             <div style={{
-              background: "#0D1F2D",
-              border: "1px solid #1B3A52",
+              background: theme.strategyBg,
+              border: `1px solid ${theme.strategyBorder}`,
               borderRadius: 8,
               padding: "12px 16px",
             }}>
-              <p style={{ color: "#A8D8F0", fontSize: 13, lineHeight: 1.7, fontFamily: "'DM Mono', monospace" }}>
+              <p style={{ color: theme.strategyText, fontSize: 13, lineHeight: 1.7, fontFamily: "'DM Mono', monospace" }}>
                 {overall_strategy}
               </p>
             </div>
@@ -88,13 +88,13 @@ export default function ChangeSummary({ changeSummary, original, tailored }) {
               <span style={{ fontSize: 13, color: "#FF9999", fontFamily: "'DM Mono', monospace", background: "#FF6B6B10", border: "1px solid #FF6B6B30", borderRadius: 6, padding: "4px 12px" }}>
                 {title_change.from}
               </span>
-              <span style={{ color: "#4B5A70", fontSize: 16 }}>→</span>
-              <span style={{ fontSize: 13, color: ACCENT, fontFamily: "'DM Mono', monospace", background: "#00E5A010", border: "1px solid #00E5A030", borderRadius: 6, padding: "4px 12px" }}>
+              <span style={{ color: theme.textFaint, fontSize: 16 }}>→</span>
+              <span style={{ fontSize: 13, color: theme.accent, fontFamily: "'DM Mono', monospace", background: theme.accent + "10", border: `1px solid ${theme.accent}30`, borderRadius: 6, padding: "4px 12px" }}>
                 {title_change.to}
               </span>
             </div>
             {title_change.reason && (
-              <p style={{ color: "#6B7FA3", fontSize: 11, fontStyle: "italic", marginTop: 10, lineHeight: 1.6, fontFamily: "'DM Mono', monospace" }}>
+              <p style={{ color: theme.textMuted, fontSize: 11, fontStyle: "italic", marginTop: 10, lineHeight: 1.6, fontFamily: "'DM Mono', monospace" }}>
                 {title_change.reason}
               </p>
             )}
@@ -109,7 +109,7 @@ export default function ChangeSummary({ changeSummary, original, tailored }) {
                 <div key={i}>
                   <Pill>{kw.keyword}</Pill>
                   {(kw.added_where || kw.reason) && (
-                    <p style={{ color: "#6B7FA3", fontSize: 11, fontStyle: "italic", marginTop: 4, lineHeight: 1.5, fontFamily: "'DM Mono', monospace" }}>
+                    <p style={{ color: theme.textMuted, fontSize: 11, fontStyle: "italic", marginTop: 4, lineHeight: 1.5, fontFamily: "'DM Mono', monospace" }}>
                       {kw.added_where && <span>{kw.added_where}</span>}
                       {kw.added_where && kw.reason && <span> · </span>}
                       {kw.reason && <span>{kw.reason}</span>}
@@ -126,19 +126,19 @@ export default function ChangeSummary({ changeSummary, original, tailored }) {
           <SectionCard icon="🔄" title={`Sections Reframed (${sections_reframed.length})`}>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {sections_reframed.map((item, i) => (
-                <div key={i} style={{ borderLeft: "2px solid #1E2D40", paddingLeft: 12 }}>
+                <div key={i} style={{ borderLeft: `2px solid ${theme.border}`, paddingLeft: 12 }}>
                   {item.section && (
-                    <p style={{ fontSize: 12, fontWeight: 700, color: "#CBD5E1", fontFamily: "'DM Mono', monospace", marginBottom: 3 }}>
+                    <p style={{ fontSize: 12, fontWeight: 700, color: theme.text, fontFamily: "'DM Mono', monospace", marginBottom: 3 }}>
                       {item.section}
                     </p>
                   )}
                   {item.change && (
-                    <p style={{ fontSize: 12, color: "#8899A6", lineHeight: 1.5, fontFamily: "'DM Mono', monospace", marginBottom: 3 }}>
+                    <p style={{ fontSize: 12, color: theme.textMuted, lineHeight: 1.5, fontFamily: "'DM Mono', monospace", marginBottom: 3 }}>
                       {item.change}
                     </p>
                   )}
                   {item.reason && (
-                    <p style={{ fontSize: 11, color: "#6B7FA3", fontStyle: "italic", lineHeight: 1.5, fontFamily: "'DM Mono', monospace" }}>
+                    <p style={{ fontSize: 11, color: theme.textMuted, fontStyle: "italic", lineHeight: 1.5, fontFamily: "'DM Mono', monospace" }}>
                       {item.reason}
                     </p>
                   )}
@@ -162,7 +162,7 @@ export default function ChangeSummary({ changeSummary, original, tailored }) {
                       </p>
                     )}
                     {item.reason && (
-                      <p style={{ fontSize: 11, color: "#6B7FA3", fontStyle: "italic", lineHeight: 1.5, fontFamily: "'DM Mono', monospace" }}>
+                      <p style={{ fontSize: 11, color: theme.textMuted, fontStyle: "italic", lineHeight: 1.5, fontFamily: "'DM Mono', monospace" }}>
                         {item.reason}
                       </p>
                     )}
@@ -181,8 +181,8 @@ export default function ChangeSummary({ changeSummary, original, tailored }) {
           onClick={() => setDiffOpen(o => !o)}
           style={{
             background: "transparent",
-            border: `1px solid ${BORDER}`,
-            color: "#4B5A70",
+            border: `1px solid ${theme.border}`,
+            color: theme.textFaint,
             borderRadius: 8,
             padding: "8px 16px",
             fontSize: 12,
@@ -193,8 +193,8 @@ export default function ChangeSummary({ changeSummary, original, tailored }) {
             gap: 6,
             transition: "color 0.15s, border-color 0.15s",
           }}
-          onMouseEnter={e => { e.currentTarget.style.color = ACCENT; e.currentTarget.style.borderColor = ACCENT; }}
-          onMouseLeave={e => { e.currentTarget.style.color = "#4B5A70"; e.currentTarget.style.borderColor = BORDER; }}
+          onMouseEnter={e => { e.currentTarget.style.color = theme.accent; e.currentTarget.style.borderColor = theme.accent; }}
+          onMouseLeave={e => { e.currentTarget.style.color = theme.textFaint; e.currentTarget.style.borderColor = theme.border; }}
         >
           <span style={{ fontSize: 10, transform: diffOpen ? "rotate(180deg)" : "none", display: "inline-block", transition: "transform 0.2s" }}>▼</span>
           {diffOpen ? "Hide line-by-line diff" : "Show line-by-line diff"}

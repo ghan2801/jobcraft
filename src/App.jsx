@@ -8,18 +8,16 @@ import DiffView from "./DiffView";
 import ChangeSummary from "./ChangeSummary";
 import GapReport from "./GapReport";
 import ReviewMode from "./ReviewMode";
+import { ThemeContext, DARK_THEME, LIGHT_THEME, useTheme } from "./ThemeContext";
 
-const ACCENT = "#00E5A0";
-const DARK = "#0A0F1E";
-const CARD = "#111827";
-const BORDER = "#1E2D40";
-
-function Tag({ children, color = ACCENT }) {
+function Tag({ children, color }) {
+  const { theme } = useTheme();
+  const c = color || theme.accent;
   return (
     <span style={{
-      background: color + "18",
-      color: color,
-      border: `1px solid ${color}40`,
+      background: c + "18",
+      color: c,
+      border: `1px solid ${c}40`,
       borderRadius: 4,
       padding: "2px 8px",
       fontSize: 11,
@@ -33,16 +31,17 @@ function Tag({ children, color = ACCENT }) {
 
 
 function Spinner() {
+  const { theme } = useTheme();
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "40px 0" }}>
       <div style={{
         width: 44, height: 44,
-        border: `3px solid ${BORDER}`,
-        borderTop: `3px solid ${ACCENT}`,
+        border: `3px solid ${theme.border}`,
+        borderTop: `3px solid ${theme.accent}`,
         borderRadius: "50%",
         animation: "spin 0.8s linear infinite",
       }} />
-      <p style={{ color: "#6B7FA3", fontSize: 13, fontFamily: "'DM Mono', monospace" }}>Tailoring your resume…</p>
+      <p style={{ color: theme.textMuted, fontSize: 13, fontFamily: "'DM Mono', monospace" }}>Tailoring your resume…</p>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
@@ -51,6 +50,7 @@ function Spinner() {
 
 
 function StepIndicator({ current }) {
+  const { theme } = useTheme();
   const steps = ["Upload Resume", "Paste JD", "Review & Apply"];
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 36 }}>
@@ -59,19 +59,19 @@ function StepIndicator({ current }) {
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
             <div style={{
               width: 32, height: 32, borderRadius: "50%",
-              background: i < current ? ACCENT : i === current ? ACCENT : BORDER,
-              color: i <= current ? DARK : "#4B5A70",
+              background: i <= current ? theme.accent : theme.border,
+              color: i <= current ? theme.background : theme.textFaint,
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: 13, fontWeight: 700, fontFamily: "'DM Mono', monospace",
-              boxShadow: i === current ? `0 0 0 4px ${ACCENT}25` : "none",
+              boxShadow: i === current ? `0 0 0 4px ${theme.accent}25` : "none",
               transition: "all 0.3s",
             }}>
               {i < current ? "✓" : i + 1}
             </div>
-            <span style={{ fontSize: 10, color: i <= current ? "#CBD5E1" : "#4B5A70", fontFamily: "'Syne', sans-serif", whiteSpace: "nowrap", letterSpacing: "0.05em" }}>{s}</span>
+            <span style={{ fontSize: 10, color: i <= current ? theme.text : theme.textFaint, fontFamily: "'Syne', sans-serif", whiteSpace: "nowrap", letterSpacing: "0.05em" }}>{s}</span>
           </div>
           {i < steps.length - 1 && (
-            <div style={{ flex: 1, height: 1, background: i < current ? ACCENT : BORDER, margin: "0 8px", marginBottom: 20, transition: "background 0.3s" }} />
+            <div style={{ flex: 1, height: 1, background: i < current ? theme.accent : theme.border, margin: "0 8px", marginBottom: 20, transition: "background 0.3s" }} />
           )}
         </div>
       ))}
@@ -80,6 +80,7 @@ function StepIndicator({ current }) {
 }
 
 function JobCraft({ session, onLogout, onShowHistory, onShowProfile }) {
+  const { theme, isDark, toggleTheme } = useTheme();
   const [step, setStep] = useState(0);
   const [resume, setResume] = useState("");
   const [jd, setJD] = useState("");
@@ -439,29 +440,34 @@ ${changesList}`,
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: DARK, fontFamily: "'Syne', sans-serif", color: "#CBD5E1", padding: "0" }}>
+    <div style={{ minHeight: "100vh", background: theme.background, fontFamily: "'Syne', sans-serif", color: theme.text, padding: "0", transition: "background 0.3s, color 0.3s" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         textarea:focus, button:focus { outline: none; }
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #0A0F1E; }
-        ::-webkit-scrollbar-thumb { background: #1E2D40; border-radius: 3px; }
+        ::-webkit-scrollbar-track { background: ${theme.background}; }
+        ::-webkit-scrollbar-thumb { background: ${theme.border}; border-radius: 3px; }
         textarea { resize: vertical; }
-        .btn-primary:hover { background: #00FFB3 !important; transform: translateY(-1px); }
-        .btn-ghost:hover { border-color: ${ACCENT} !important; color: ${ACCENT} !important; }
+        .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .btn-ghost:hover { border-color: ${theme.accent} !important; color: ${theme.accent} !important; }
       `}</style>
 
-      <div style={{ borderBottom: `1px solid ${BORDER}`, padding: "18px 40px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#090E1C", position: "sticky", top: 0, zIndex: 100 }}>
+      <div style={{ borderBottom: `1px solid ${theme.border}`, padding: "18px 40px", display: "flex", alignItems: "center", justifyContent: "space-between", background: theme.headerBg, position: "sticky", top: 0, zIndex: 100, boxShadow: isDark ? "none" : "0 1px 4px #0000000A" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 32, height: 32, background: ACCENT, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⚡</div>
-          <span style={{ fontSize: 20, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>Job<span style={{ color: ACCENT }}>Craft</span></span>
+          <div style={{ width: 32, height: 32, background: theme.accent, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⚡</div>
+          <span style={{ fontSize: 20, fontWeight: 800, color: theme.textStrong, letterSpacing: "-0.02em" }}>Job<span style={{ color: theme.accent }}>Craft</span></span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Tag color={ACCENT}>Mission HIRED 🔥</Tag>
-          <button onClick={onShowProfile} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>👤 My Profile</button>
-          <button onClick={onShowHistory} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>📋 History</button>
-          <button onClick={onLogout} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>Sign Out</button>
+          <Tag>Mission HIRED 🔥</Tag>
+          <button
+            onClick={toggleTheme}
+            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            style={{ background: "transparent", border: "none", fontSize: 20, cursor: "pointer", padding: "4px 6px", lineHeight: 1 }}
+          >{isDark ? "☀️" : "🌙"}</button>
+          <button onClick={onShowProfile} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>👤 My Profile</button>
+          <button onClick={onShowHistory} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>📋 History</button>
+          <button onClick={onLogout} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>Sign Out</button>
         </div>
       </div>
 
@@ -469,10 +475,11 @@ ${changesList}`,
       {toast && (
         <div style={{
           position: "fixed", bottom: 24, right: 24, zIndex: 999,
-          background: "#052e16", border: "1px solid #00E5A060",
-          color: "#00E5A0", borderRadius: 10, padding: "12px 20px",
+          background: isDark ? "#052e16" : "#ECFDF5",
+          border: `1px solid ${theme.accent}60`,
+          color: theme.accent, borderRadius: 10, padding: "12px 20px",
           fontSize: 13, fontFamily: "'DM Mono', monospace", fontWeight: 600,
-          boxShadow: "0 4px 24px #00000060",
+          boxShadow: "0 4px 24px #00000030",
           animation: "fadeInUp 0.25s ease",
         }}>
           ✓ {toast}
@@ -482,12 +489,12 @@ ${changesList}`,
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "48px 24px" }}>
         <div style={{ textAlign: "center", marginBottom: 52 }}>
-          <div style={{ display: "inline-block", background: `${ACCENT}12`, border: `1px solid ${ACCENT}30`, borderRadius: 20, padding: "6px 16px", fontSize: 12, color: ACCENT, marginBottom: 20, fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em" }}>STOP SPENDING 25 MIN PER APPLICATION</div>
-          <h1 style={{ fontSize: 42, fontWeight: 800, color: "#fff", lineHeight: 1.15, letterSpacing: "-0.03em", marginBottom: 14 }}>
+          <div style={{ display: "inline-block", background: theme.accent + "12", border: `1px solid ${theme.accent}30`, borderRadius: 20, padding: "6px 16px", fontSize: 12, color: theme.accent, marginBottom: 20, fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em" }}>STOP SPENDING 25 MIN PER APPLICATION</div>
+          <h1 style={{ fontSize: 42, fontWeight: 800, color: theme.textStrong, lineHeight: 1.15, letterSpacing: "-0.03em", marginBottom: 14 }}>
             Tailor your resume to<br />
-            <span style={{ color: ACCENT }}>any job in seconds.</span>
+            <span style={{ color: theme.accent }}>any job in seconds.</span>
           </h1>
-          <p style={{ color: "#6B7FA3", fontSize: 15, maxWidth: 520, margin: "0 auto", lineHeight: 1.7 }}>Paste your resume + job description. AI rewrites it with the right keywords to beat ATS filters.</p>
+          <p style={{ color: theme.textMuted, fontSize: 15, maxWidth: 520, margin: "0 auto", lineHeight: 1.7 }}>Paste your resume + job description. AI rewrites it with the right keywords to beat ATS filters.</p>
         </div>
 
         <StepIndicator current={step} />
@@ -496,26 +503,26 @@ ${changesList}`,
           <div>
             {/* Welcome banner for new users */}
             {showWelcome && (
-              <div style={{ background: "#0D1F14", border: `1px solid ${ACCENT}35`, borderRadius: 12, padding: "18px 24px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+              <div style={{ background: isDark ? "#0D1F14" : "#F0FDF4", border: `1px solid ${theme.accent}35`, borderRadius: 12, padding: "18px 24px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
                 <div>
-                  <p style={{ color: "#fff", fontWeight: 700, fontSize: 15, marginBottom: 4 }}>Welcome to JobCraft! 👋</p>
-                  <p style={{ color: "#6B7FA3", fontSize: 13, lineHeight: 1.6 }}>Save your base resume in your profile so it auto-loads every session.</p>
+                  <p style={{ color: theme.textStrong, fontWeight: 700, fontSize: 15, marginBottom: 4 }}>Welcome to JobCraft! 👋</p>
+                  <p style={{ color: theme.textMuted, fontSize: 13, lineHeight: 1.6 }}>Save your base resume in your profile so it auto-loads every session.</p>
                 </div>
                 <button
                   onClick={onShowProfile}
-                  style={{ background: ACCENT, color: DARK, border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif", whiteSpace: "nowrap" }}
+                  style={{ background: theme.accent, color: theme.background, border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif", whiteSpace: "nowrap" }}
                 >Set Up Profile →</button>
               </div>
             )}
 
-            <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 32 }}>
+            <div style={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 32 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-                <div style={{ width: 28, height: 28, background: `${ACCENT}20`, border: `1px solid ${ACCENT}50`, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>📄</div>
-                <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Your Current Resume</h2>
+                <div style={{ width: 28, height: 28, background: theme.accent + "20", border: `1px solid ${theme.accent}50`, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>📄</div>
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: theme.textStrong }}>Your Current Resume</h2>
               </div>
 
               {/* Source tabs */}
-              <div style={{ display: "flex", marginBottom: 20, borderRadius: 8, overflow: "hidden", border: `1px solid ${BORDER}` }}>
+              <div style={{ display: "flex", marginBottom: 20, borderRadius: 8, overflow: "hidden", border: `1px solid ${theme.border}` }}>
                 {[
                   { key: "profile", label: "👤 My Profile Resume" },
                   { key: "paste",   label: "✏️ Paste Text" },
@@ -525,9 +532,9 @@ ${changesList}`,
                     key={key}
                     onClick={() => handleSourceChange(key)}
                     style={{
-                      flex: 1, background: resumeSource === key ? `${ACCENT}18` : "transparent",
-                      color: resumeSource === key ? ACCENT : "#6B7FA3",
-                      border: "none", borderRight: i < arr.length - 1 ? `1px solid ${BORDER}` : "none",
+                      flex: 1, background: resumeSource === key ? theme.accent + "18" : "transparent",
+                      color: resumeSource === key ? theme.accent : theme.textMuted,
+                      border: "none", borderRight: i < arr.length - 1 ? `1px solid ${theme.border}` : "none",
                       padding: "10px 0", fontSize: 12, fontWeight: 600,
                       cursor: "pointer", fontFamily: "'DM Mono', monospace",
                       transition: "all 0.15s",
@@ -541,22 +548,22 @@ ${changesList}`,
                 <div>
                   {profileResume ? (
                     <div>
-                      <div style={{ background: "#0A0F1E", border: `1px solid ${BORDER}`, borderRadius: 10, padding: 16, minHeight: 120, maxHeight: 220, overflow: "auto" }}>
-                        <pre style={{ color: "#6B7FA3", fontSize: 12, fontFamily: "'DM Mono', monospace", lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                      <div style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 16, minHeight: 120, maxHeight: 220, overflow: "auto" }}>
+                        <pre style={{ color: theme.textMuted, fontSize: 12, fontFamily: "'DM Mono', monospace", lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                           {profileResume.slice(0, 600)}{profileResume.length > 600 ? "\n…" : ""}
                         </pre>
                       </div>
-                      <p style={{ color: "#4B5A70", fontSize: 11, fontFamily: "'DM Mono', monospace", marginTop: 8 }}>
+                      <p style={{ color: theme.textFaint, fontSize: 11, fontFamily: "'DM Mono', monospace", marginTop: 8 }}>
                         {profileResume.length.toLocaleString()} chars ·{" "}
-                        <button onClick={onShowProfile} style={{ background: "none", border: "none", color: ACCENT, fontSize: 11, cursor: "pointer", fontFamily: "'DM Mono', monospace", padding: 0 }}>
+                        <button onClick={onShowProfile} style={{ background: "none", border: "none", color: theme.accent, fontSize: 11, cursor: "pointer", fontFamily: "'DM Mono', monospace", padding: 0 }}>
                           Edit in Profile →
                         </button>
                       </p>
                     </div>
                   ) : (
                     <div style={{ textAlign: "center", padding: "32px 0" }}>
-                      <p style={{ color: "#6B7FA3", fontSize: 13, marginBottom: 16 }}>No profile resume saved yet.</p>
-                      <button onClick={onShowProfile} style={{ background: ACCENT, color: DARK, border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>Set Up Profile →</button>
+                      <p style={{ color: theme.textMuted, fontSize: 13, marginBottom: 16 }}>No profile resume saved yet.</p>
+                      <button onClick={onShowProfile} style={{ background: theme.accent, color: theme.background, border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>Set Up Profile →</button>
                     </div>
                   )}
                 </div>
@@ -568,7 +575,7 @@ ${changesList}`,
                   value={resume}
                   onChange={e => setResume(e.target.value)}
                   placeholder="Paste your resume text here…"
-                  style={{ width: "100%", minHeight: 220, background: "#0A0F1E", border: `1px solid ${BORDER}`, borderRadius: 10, padding: 16, color: "#CBD5E1", fontSize: 13, fontFamily: "'DM Mono', monospace", lineHeight: 1.8 }}
+                  style={{ width: "100%", minHeight: 220, background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 16, color: theme.text, fontSize: 13, fontFamily: "'DM Mono', monospace", lineHeight: 1.8 }}
                 />
               )}
 
@@ -579,10 +586,10 @@ ${changesList}`,
                   <button
                     className="btn-ghost"
                     onClick={() => fileRef.current.click()}
-                    style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 8, padding: "10px 22px", fontSize: 13, cursor: "pointer" }}
+                    style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "10px 22px", fontSize: 13, cursor: "pointer" }}
                   >📁 Choose .txt / .md file</button>
                   {resume && (
-                    <p style={{ color: ACCENT, fontSize: 12, fontFamily: "'DM Mono', monospace", marginTop: 12 }}>
+                    <p style={{ color: theme.accent, fontSize: 12, fontFamily: "'DM Mono', monospace", marginTop: 12 }}>
                       ✓ File loaded ({resume.length.toLocaleString()} chars)
                     </p>
                   )}
@@ -590,42 +597,42 @@ ${changesList}`,
               )}
 
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20 }}>
-                <button className="btn-ghost" onClick={() => { setResume(sampleResume); setResumeSource("paste"); }} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 8, padding: "8px 16px", fontSize: 13, cursor: "pointer" }}>✨ Load sample</button>
-                <button className="btn-primary" onClick={() => setStep(1)} disabled={!resume.trim()} style={{ background: resume.trim() ? ACCENT : BORDER, color: resume.trim() ? DARK : "#4B5A70", border: "none", borderRadius: 10, padding: "12px 28px", fontSize: 14, fontWeight: 700, cursor: resume.trim() ? "pointer" : "not-allowed", fontFamily: "'Syne', sans-serif" }}>Continue →</button>
+                <button className="btn-ghost" onClick={() => { setResume(sampleResume); setResumeSource("paste"); }} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "8px 16px", fontSize: 13, cursor: "pointer" }}>✨ Load sample</button>
+                <button className="btn-primary" onClick={() => setStep(1)} disabled={!resume.trim()} style={{ background: resume.trim() ? theme.accent : theme.border, color: resume.trim() ? theme.background : theme.textFaint, border: "none", borderRadius: 10, padding: "12px 28px", fontSize: 14, fontWeight: 700, cursor: resume.trim() ? "pointer" : "not-allowed", fontFamily: "'Syne', sans-serif" }}>Continue →</button>
               </div>
             </div>
           </div>
         )}
 
         {step === 1 && (
-          <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 32 }}>
+          <div style={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 32 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-              <div style={{ width: 28, height: 28, background: `${ACCENT}20`, border: `1px solid ${ACCENT}50`, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🎯</div>
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Job Description</h2>
+              <div style={{ width: 28, height: 28, background: theme.accent + "20", border: `1px solid ${theme.accent}50`, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🎯</div>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: theme.textStrong }}>Job Description</h2>
             </div>
-            <textarea value={jd} onChange={e => setJD(e.target.value)} placeholder="Paste the full job description here…" style={{ width: "100%", minHeight: 260, background: "#0A0F1E", border: `1px solid ${BORDER}`, borderRadius: 10, padding: 16, color: "#CBD5E1", fontSize: 13, fontFamily: "'DM Mono', monospace", lineHeight: 1.8 }} />
+            <textarea value={jd} onChange={e => setJD(e.target.value)} placeholder="Paste the full job description here…" style={{ width: "100%", minHeight: 260, background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 16, color: theme.text, fontSize: 13, fontFamily: "'DM Mono', monospace", lineHeight: 1.8 }} />
             <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-              <button className="btn-ghost" onClick={() => setJD(sampleJD)} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 8, padding: "8px 16px", fontSize: 13, cursor: "pointer" }}>✨ Load sample JD</button>
+              <button className="btn-ghost" onClick={() => setJD(sampleJD)} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "8px 16px", fontSize: 13, cursor: "pointer" }}>✨ Load sample JD</button>
             </div>
             {loading && <Spinner />}
             {error && <p style={{ color: "#FF6B6B", fontSize: 13, marginTop: 12 }}>{error}</p>}
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20 }}>
-              <button className="btn-ghost" onClick={() => setStep(0)} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 10, padding: "12px 24px", fontSize: 14, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>← Back</button>
-              <button className="btn-primary" onClick={tailorResume} disabled={!jd.trim() || loading} style={{ background: jd.trim() && !loading ? ACCENT : BORDER, color: jd.trim() && !loading ? DARK : "#4B5A70", border: "none", borderRadius: 10, padding: "12px 28px", fontSize: 14, fontWeight: 700, cursor: jd.trim() && !loading ? "pointer" : "not-allowed", fontFamily: "'Syne', sans-serif" }}>⚡ Tailor My Resume</button>
+              <button className="btn-ghost" onClick={() => setStep(0)} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 10, padding: "12px 24px", fontSize: 14, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>← Back</button>
+              <button className="btn-primary" onClick={tailorResume} disabled={!jd.trim() || loading} style={{ background: jd.trim() && !loading ? theme.accent : theme.border, color: jd.trim() && !loading ? theme.background : theme.textFaint, border: "none", borderRadius: 10, padding: "12px 28px", fontSize: 14, fontWeight: 700, cursor: jd.trim() && !loading ? "pointer" : "not-allowed", fontFamily: "'Syne', sans-serif" }}>⚡ Tailor My Resume</button>
             </div>
           </div>
         )}
 
         {step === 2 && tailored && (
           <div>
-            <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 24, marginBottom: 20, display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
+            <div style={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 24, marginBottom: 20, display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
                 <div>
-                  <p style={{ fontSize: 11, color: "#6B7FA3", fontFamily: "'DM Mono', monospace", marginBottom: 6, letterSpacing: "0.08em" }}>ATS MATCH SCORE</p>
+                  <p style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'DM Mono', monospace", marginBottom: 6, letterSpacing: "0.08em" }}>ATS MATCH SCORE</p>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <span style={{ fontSize: 22, fontWeight: 800, color: "#FF6B6B", fontFamily: "'DM Mono', monospace" }}>{originalAtsScore ?? "—"}%</span>
-                    <span style={{ fontSize: 18, color: "#4B5A70" }}>→</span>
-                    <span style={{ fontSize: 22, fontWeight: 800, color: ACCENT, fontFamily: "'DM Mono', monospace" }}>{atsScore}%</span>
+                    <span style={{ fontSize: 18, color: theme.textFaint }}>→</span>
+                    <span style={{ fontSize: 22, fontWeight: 800, color: theme.accent, fontFamily: "'DM Mono', monospace" }}>{atsScore}%</span>
                     {originalAtsScore != null && atsScore != null && (
                       <span style={{ fontSize: 13, fontWeight: 700, color: "#FFD166", fontFamily: "'DM Mono', monospace", background: "#FFD16618", border: "1px solid #FFD16640", borderRadius: 6, padding: "2px 8px" }}>
                         📈 +{atsScore - originalAtsScore} pts
@@ -634,11 +641,11 @@ ${changesList}`,
                   </div>
                   <div style={{ display: "flex", gap: 16, marginTop: 4 }}>
                     <span style={{ fontSize: 10, color: "#FF6B6B", fontFamily: "'DM Mono', monospace" }}>BEFORE</span>
-                    <span style={{ fontSize: 10, color: ACCENT, fontFamily: "'DM Mono', monospace" }}>AFTER</span>
+                    <span style={{ fontSize: 10, color: theme.accent, fontFamily: "'DM Mono', monospace" }}>AFTER</span>
                   </div>
                 </div>
-                <div style={{ borderLeft: `1px solid ${BORDER}`, paddingLeft: 20 }}>
-                  <p style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>{atsScore >= 80 ? "🔥 Excellent!" : atsScore >= 60 ? "✅ Good match" : "⚠️ Needs work"}</p>
+                <div style={{ borderLeft: `1px solid ${theme.border}`, paddingLeft: 20 }}>
+                  <p style={{ fontSize: 16, fontWeight: 700, color: theme.textStrong }}>{atsScore >= 80 ? "🔥 Excellent!" : atsScore >= 60 ? "✅ Good match" : "⚠️ Needs work"}</p>
                 </div>
               </div>
               <button
@@ -649,16 +656,16 @@ ${changesList}`,
                   tab.document.write(html);
                   tab.document.close();
                 }}
-                style={{ marginLeft: "auto", background: ACCENT, color: DARK, border: "none", borderRadius: 10, padding: "12px 22px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}
+                style={{ marginLeft: "auto", background: theme.accent, color: theme.background, border: "none", borderRadius: 10, padding: "12px 22px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}
               >
                 ⬇ Preview &amp; Download PDF
               </button>
             </div>
 
-            <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden" }}>
-              <div style={{ borderBottom: `1px solid ${BORDER}`, display: "flex" }}>
+            <div style={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 16, overflow: "hidden" }}>
+              <div style={{ borderBottom: `1px solid ${theme.border}`, display: "flex" }}>
                 {["diff", "gap", "review", "tailored", "feedback"].map(tab => (
-                  <button key={tab} onClick={() => setActiveTab(tab)} style={{ background: "none", border: "none", padding: "14px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", color: activeTab === tab ? ACCENT : "#4B5A70", borderBottom: activeTab === tab ? `2px solid ${ACCENT}` : "2px solid transparent", fontFamily: "'Syne', sans-serif" }}>
+                  <button key={tab} onClick={() => setActiveTab(tab)} style={{ background: "none", border: "none", padding: "14px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", color: activeTab === tab ? theme.accent : theme.textFaint, borderBottom: activeTab === tab ? `2px solid ${theme.accent}` : "2px solid transparent", fontFamily: "'Syne', sans-serif" }}>
                     {tab === "diff" ? "📊 Changes" : tab === "gap" ? "🔍 Gap Report" : tab === "review" ? "✏️ Review" : tab === "tailored" ? "📄 New Resume" : "💬 Refine"}
                   </button>
                 ))}
@@ -677,16 +684,16 @@ ${changesList}`,
                     loading={loading}
                   />
                 )}
-                {activeTab === "tailored" && <pre style={{ color: "#CBD5E1", fontSize: 12.5, fontFamily: "'DM Mono', monospace", lineHeight: 1.9, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{tailored}</pre>}
+                {activeTab === "tailored" && <pre style={{ color: theme.text, fontSize: 12.5, fontFamily: "'DM Mono', monospace", lineHeight: 1.9, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{tailored}</pre>}
                 {activeTab === "feedback" && (
                   <div>
-                    <p style={{ color: "#6B7FA3", fontSize: 13, marginBottom: 16 }}>Tell the AI what to fix and it'll refine the resume.</p>
-                    <textarea value={feedback} onChange={e => setFeedback(e.target.value)} placeholder='e.g. "Add more emphasis on leadership experience"' style={{ width: "100%", minHeight: 100, background: "#0A0F1E", border: `1px solid ${BORDER}`, borderRadius: 10, padding: 14, color: "#CBD5E1", fontSize: 13, fontFamily: "'DM Mono', monospace", lineHeight: 1.8 }} />
+                    <p style={{ color: theme.textMuted, fontSize: 13, marginBottom: 16 }}>Tell the AI what to fix and it'll refine the resume.</p>
+                    <textarea value={feedback} onChange={e => setFeedback(e.target.value)} placeholder='e.g. "Add more emphasis on leadership experience"' style={{ width: "100%", minHeight: 100, background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 14, color: theme.text, fontSize: 13, fontFamily: "'DM Mono', monospace", lineHeight: 1.8 }} />
                     {loading && <Spinner />}
                     {error && <p style={{ color: "#FF6B6B", fontSize: 13, marginTop: 8 }}>{error}</p>}
                     <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-                      <button className="btn-primary" onClick={refineWithFeedback} disabled={!feedback.trim() || loading} style={{ background: feedback.trim() && !loading ? ACCENT : BORDER, color: feedback.trim() && !loading ? DARK : "#4B5A70", border: "none", borderRadius: 10, padding: "11px 24px", fontSize: 14, fontWeight: 700, cursor: feedback.trim() && !loading ? "pointer" : "not-allowed", fontFamily: "'Syne', sans-serif" }}>✨ Refine</button>
-                      <button className="btn-ghost" onClick={() => { setStep(0); setTailored(""); setAtsScore(null); setOriginalAtsScore(null); setJobTitle(""); setCompanyName(""); setResume(""); setJD(""); setChangeSummary(null); setGapReport(null); setReviewableChanges([]); setAcceptedChanges(new Set()); setIsReviewMode(false); }} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 10, padding: "11px 22px", fontSize: 14, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>Start Over</button>
+                      <button className="btn-primary" onClick={refineWithFeedback} disabled={!feedback.trim() || loading} style={{ background: feedback.trim() && !loading ? theme.accent : theme.border, color: feedback.trim() && !loading ? theme.background : theme.textFaint, border: "none", borderRadius: 10, padding: "11px 24px", fontSize: 14, fontWeight: 700, cursor: feedback.trim() && !loading ? "pointer" : "not-allowed", fontFamily: "'Syne', sans-serif" }}>✨ Refine</button>
+                      <button className="btn-ghost" onClick={() => { setStep(0); setTailored(""); setAtsScore(null); setOriginalAtsScore(null); setJobTitle(""); setCompanyName(""); setResume(""); setJD(""); setChangeSummary(null); setGapReport(null); setReviewableChanges([]); setAcceptedChanges(new Set()); setIsReviewMode(false); }} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 10, padding: "11px 22px", fontSize: 14, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>Start Over</button>
                     </div>
                   </div>
                 )}
@@ -695,7 +702,7 @@ ${changesList}`,
           </div>
         )}
 
-        <p style={{ textAlign: "center", fontSize: 11, color: "#2D3D52", marginTop: 48, fontFamily: "'DM Mono', monospace" }}>Mission HIRED 🔥 · Built by Ghanshyam · Powered by Claude</p>
+        <p style={{ textAlign: "center", fontSize: 11, color: theme.textFaint, marginTop: 48, fontFamily: "'DM Mono', monospace" }}>Mission HIRED 🔥 · Built by Ghanshyam · Powered by Claude</p>
       </div>
     </div>
   );
@@ -705,6 +712,20 @@ export default function App() {
   const [session, setSession]           = useState(undefined);
   const [showHistory, setShowHistory]   = useState(false);
   const [showProfile, setShowProfile]   = useState(false);
+  const [isDark, setIsDark]             = useState(() => {
+    const saved = localStorage.getItem("jobcraft-theme");
+    return saved ? saved === "dark" : true;
+  });
+
+  const theme = isDark ? DARK_THEME : LIGHT_THEME;
+
+  function toggleTheme() {
+    setIsDark(prev => {
+      const next = !prev;
+      localStorage.setItem("jobcraft-theme", next ? "dark" : "light");
+      return next;
+    });
+  }
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -725,32 +746,28 @@ export default function App() {
   if (session === undefined) return null;
   if (!session) return <Login />;
 
-  if (showHistory) {
-    return (
-      <History
-        session={session}
-        onBack={() => setShowHistory(false)}
-        onLogout={handleLogout}
-      />
-    );
-  }
-
-  if (showProfile) {
-    return (
-      <Profile
-        session={session}
-        onBack={() => setShowProfile(false)}
-        onLogout={handleLogout}
-      />
-    );
-  }
-
   return (
-    <JobCraft
-      session={session}
-      onLogout={handleLogout}
-      onShowHistory={() => setShowHistory(true)}
-      onShowProfile={() => setShowProfile(true)}
-    />
+    <ThemeContext.Provider value={{ theme, isDark, toggleTheme }}>
+      {showHistory ? (
+        <History
+          session={session}
+          onBack={() => setShowHistory(false)}
+          onLogout={handleLogout}
+        />
+      ) : showProfile ? (
+        <Profile
+          session={session}
+          onBack={() => setShowProfile(false)}
+          onLogout={handleLogout}
+        />
+      ) : (
+        <JobCraft
+          session={session}
+          onLogout={handleLogout}
+          onShowHistory={() => setShowHistory(true)}
+          onShowProfile={() => setShowProfile(true)}
+        />
+      )}
+    </ThemeContext.Provider>
   );
 }

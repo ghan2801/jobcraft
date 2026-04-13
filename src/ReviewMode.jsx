@@ -1,11 +1,8 @@
-const ACCENT  = "#00E5A0";
-const DARK    = "#0A0F1E";
-const CARD    = "#111827";
-const BORDER  = "#1E2D40";
+import { useTheme } from "./ThemeContext";
 
 const TYPE_CONFIG = {
   title_change:     { label: "Title Change",     color: "#8B5CF6" },
-  keyword_added:    { label: "Keyword Added",    color: "#00E5A0" },
+  keyword_added:    { label: "Keyword Added",    color: "#00C47A" },
   section_reframed: { label: "Section Reframed", color: "#3B82F6" },
   skill_added:      { label: "Skill Added",      color: "#06B6D4" },
 };
@@ -35,13 +32,14 @@ function TypeBadge({ type }) {
 }
 
 function ChangeCard({ change, accepted, onToggle }) {
-  const risk    = RISK_CONFIG[(change.risk_level || "").toLowerCase()];
+  const { theme } = useTheme();
+  const risk     = RISK_CONFIG[(change.risk_level || "").toLowerCase()];
   const showRisk = risk && change.risk_level !== "safe";
 
   return (
     <div style={{
-      background: accepted ? CARD : "#0C1018",
-      border: `1px solid ${accepted ? BORDER : "#0F1A28"}`,
+      background: accepted ? theme.card : theme.cardDeep,
+      border: `1px solid ${accepted ? theme.border : (theme.isDark ? "#0F1A28" : theme.border)}`,
       borderRadius: 10,
       padding: 16,
       opacity: accepted ? 1 : 0.55,
@@ -53,15 +51,15 @@ function ChangeCard({ change, accepted, onToggle }) {
         <p style={{
           flex: 1,
           fontSize: 13,
-          color: accepted ? "#CBD5E1" : "#4B5A70",
+          color: accepted ? theme.text : theme.textFaint,
           fontFamily: "'Syne', sans-serif",
           fontWeight: 600,
           lineHeight: 1.4,
         }}>{change.description}</p>
         <span style={{
-          background: "#00E5A018",
-          color: ACCENT,
-          border: "1px solid #00E5A040",
+          background: theme.accent + "18",
+          color: theme.accent,
+          border: `1px solid ${theme.accent}40`,
           borderRadius: 6,
           padding: "2px 8px",
           fontSize: 11,
@@ -78,8 +76,8 @@ function ChangeCard({ change, accepted, onToggle }) {
             <span style={{ fontSize: 12, color: "#FF9999", fontFamily: "'DM Mono', monospace", background: "#FF6B6B10", border: "1px solid #FF6B6B30", borderRadius: 6, padding: "3px 10px" }}>
               {change.original_text}
             </span>
-            <span style={{ color: "#4B5A70" }}>→</span>
-            <span style={{ fontSize: 12, color: ACCENT, fontFamily: "'DM Mono', monospace", background: "#00E5A010", border: "1px solid #00E5A030", borderRadius: 6, padding: "3px 10px" }}>
+            <span style={{ color: theme.textFaint }}>→</span>
+            <span style={{ fontSize: 12, color: theme.accent, fontFamily: "'DM Mono', monospace", background: theme.accent + "10", border: `1px solid ${theme.accent}30`, borderRadius: 6, padding: "3px 10px" }}>
               {change.new_text}
             </span>
           </div>
@@ -88,12 +86,12 @@ function ChangeCard({ change, accepted, onToggle }) {
         {(change.type === "keyword_added" || change.type === "skill_added") && change.new_text && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span style={{
-              background: "#00E5A018", color: ACCENT, border: "1px solid #00E5A040",
+              background: theme.accent + "18", color: theme.accent, border: `1px solid ${theme.accent}40`,
               borderRadius: 20, padding: "3px 12px", fontSize: 12,
               fontFamily: "'DM Mono', monospace", fontWeight: 500,
             }}>{change.new_text}</span>
             {change.location && (
-              <span style={{ fontSize: 11, color: "#6B7FA3", fontFamily: "'DM Mono', monospace", fontStyle: "italic" }}>
+              <span style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'DM Mono', monospace", fontStyle: "italic" }}>
                 in {change.location}
               </span>
             )}
@@ -101,7 +99,7 @@ function ChangeCard({ change, accepted, onToggle }) {
         )}
 
         {change.type === "section_reframed" && change.location && (
-          <p style={{ fontSize: 11, color: "#6B7FA3", fontFamily: "'DM Mono', monospace", fontStyle: "italic" }}>
+          <p style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'DM Mono', monospace", fontStyle: "italic" }}>
             Section: {change.location}
           </p>
         )}
@@ -130,9 +128,9 @@ function ChangeCard({ change, accepted, onToggle }) {
           onClick={() => !accepted && onToggle(change.id)}
           style={{
             flex: 1,
-            background: accepted ? "#00E5A018" : "transparent",
-            color: accepted ? ACCENT : "#4B5A70",
-            border: `1px solid ${accepted ? "#00E5A040" : BORDER}`,
+            background: accepted ? (theme.accent + "18") : "transparent",
+            color: accepted ? theme.accent : theme.textFaint,
+            border: `1px solid ${accepted ? (theme.accent + "40") : theme.border}`,
             borderRadius: 6,
             padding: "6px 0",
             fontSize: 12,
@@ -147,8 +145,8 @@ function ChangeCard({ change, accepted, onToggle }) {
           style={{
             flex: 1,
             background: !accepted ? "#FF6B6B18" : "transparent",
-            color: !accepted ? "#FF6B6B" : "#4B5A70",
-            border: `1px solid ${!accepted ? "#FF6B6B40" : BORDER}`,
+            color: !accepted ? "#FF6B6B" : theme.textFaint,
+            border: `1px solid ${!accepted ? "#FF6B6B40" : theme.border}`,
             borderRadius: 6,
             padding: "6px 0",
             fontSize: 12,
@@ -172,20 +170,20 @@ export default function ReviewMode({
   onApplyChoices,
   loading,
 }) {
+  const { theme } = useTheme();
+
   if (!reviewableChanges || reviewableChanges.length === 0) {
     return (
-      <div style={{ color: "#4B5A70", fontSize: 13, fontFamily: "'DM Mono', monospace", textAlign: "center", padding: "32px 0" }}>
+      <div style={{ color: theme.textFaint, fontSize: 13, fontFamily: "'DM Mono', monospace", textAlign: "center", padding: "32px 0" }}>
         No reviewable changes available.
       </div>
     );
   }
 
-  // Live score: subtract ats_impact of each rejected change
   const rejectedImpact = reviewableChanges.reduce((sum, c) => {
     return acceptedChanges.has(c.id) ? sum : sum + (c.ats_impact || 0);
   }, 0);
-  const liveScore = Math.max(0, Math.min(100, (atsScore || 0) - rejectedImpact));
-
+  const liveScore    = Math.max(0, Math.min(100, (atsScore || 0) - rejectedImpact));
   const acceptedCount = reviewableChanges.filter(c => acceptedChanges.has(c.id)).length;
 
   function toggleChange(id) {
@@ -197,20 +195,12 @@ export default function ReviewMode({
     });
   }
 
-  function acceptAll() {
-    setAcceptedChanges(new Set(reviewableChanges.map(c => c.id)));
-  }
-
-  function rejectAll() {
-    setAcceptedChanges(new Set());
-  }
-
   return (
     <div>
       {/* Score header */}
       <div style={{
-        background: DARK,
-        border: `1px solid ${BORDER}`,
+        background: theme.background,
+        border: `1px solid ${theme.border}`,
         borderRadius: 10,
         padding: "14px 18px",
         display: "flex",
@@ -221,15 +211,15 @@ export default function ReviewMode({
         marginBottom: 16,
       }}>
         <div>
-          <p style={{ fontSize: 10, color: "#6B7FA3", fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em", marginBottom: 6 }}>
+          <p style={{ fontSize: 10, color: theme.textMuted, fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em", marginBottom: 6 }}>
             ESTIMATED ATS SCORE
           </p>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 18, fontWeight: 800, color: "#FF6B6B", fontFamily: "'DM Mono', monospace" }}>
               {originalAtsScore ?? "—"}%
             </span>
-            <span style={{ color: "#4B5A70" }}>→</span>
-            <span style={{ fontSize: 18, fontWeight: 800, color: ACCENT, fontFamily: "'DM Mono', monospace" }}>
+            <span style={{ color: theme.textFaint }}>→</span>
+            <span style={{ fontSize: 18, fontWeight: 800, color: theme.accent, fontFamily: "'DM Mono', monospace" }}>
               {liveScore}%
             </span>
             {liveScore !== atsScore && (
@@ -241,12 +231,12 @@ export default function ReviewMode({
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button
-            onClick={acceptAll}
-            style={{ background: "#00E5A018", color: ACCENT, border: "1px solid #00E5A040", borderRadius: 6, padding: "5px 12px", fontSize: 11, cursor: "pointer", fontFamily: "'DM Mono', monospace", fontWeight: 600 }}
+            onClick={() => setAcceptedChanges(new Set(reviewableChanges.map(c => c.id)))}
+            style={{ background: theme.accent + "18", color: theme.accent, border: `1px solid ${theme.accent}40`, borderRadius: 6, padding: "5px 12px", fontSize: 11, cursor: "pointer", fontFamily: "'DM Mono', monospace", fontWeight: 600 }}
           >Accept All</button>
           <button
-            onClick={rejectAll}
-            style={{ background: "transparent", color: "#6B7FA3", border: `1px solid ${BORDER}`, borderRadius: 6, padding: "5px 12px", fontSize: 11, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}
+            onClick={() => setAcceptedChanges(new Set())}
+            style={{ background: "transparent", color: theme.textMuted, border: `1px solid ${theme.border}`, borderRadius: 6, padding: "5px 12px", fontSize: 11, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}
           >Reject All</button>
         </div>
       </div>
@@ -263,12 +253,12 @@ export default function ReviewMode({
         ))}
       </div>
 
-      {/* Action bar — sticky to viewport bottom while scrolling cards */}
+      {/* Sticky action bar */}
       <div style={{
         position: "sticky",
         bottom: 0,
-        background: "#0D1117",
-        border: `1px solid ${BORDER}`,
+        background: theme.cardAlt,
+        border: `1px solid ${theme.border}`,
         borderRadius: 10,
         padding: "14px 18px",
         display: "flex",
@@ -279,19 +269,19 @@ export default function ReviewMode({
         zIndex: 10,
       }}>
         <div>
-          <p style={{ fontSize: 12, color: "#6B7FA3", fontFamily: "'DM Mono', monospace", marginBottom: 2 }}>
-            <span style={{ color: ACCENT, fontWeight: 700 }}>{acceptedCount}</span> of {reviewableChanges.length} changes accepted
+          <p style={{ fontSize: 12, color: theme.textMuted, fontFamily: "'DM Mono', monospace", marginBottom: 2 }}>
+            <span style={{ color: theme.accent, fontWeight: 700 }}>{acceptedCount}</span> of {reviewableChanges.length} changes accepted
           </p>
-          <p style={{ fontSize: 12, fontFamily: "'DM Mono', monospace', monospace", color: "#CBD5E1" }}>
-            Estimated ATS: <span style={{ color: ACCENT, fontWeight: 700 }}>{liveScore}%</span>
+          <p style={{ fontSize: 12, fontFamily: "'DM Mono', monospace", color: theme.text }}>
+            Estimated ATS: <span style={{ color: theme.accent, fontWeight: 700 }}>{liveScore}%</span>
           </p>
         </div>
         <button
           onClick={() => onApplyChoices(acceptedChanges)}
           disabled={loading || acceptedCount === 0}
           style={{
-            background: acceptedCount > 0 && !loading ? ACCENT : BORDER,
-            color: acceptedCount > 0 && !loading ? DARK : "#4B5A70",
+            background: acceptedCount > 0 && !loading ? theme.accent : theme.border,
+            color: acceptedCount > 0 && !loading ? theme.background : theme.textFaint,
             border: "none",
             borderRadius: 10,
             padding: "11px 24px",

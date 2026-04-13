@@ -1,17 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabaseClient";
-
-const ACCENT = "#00E5A0";
-const DARK   = "#0A0F1E";
-const CARD   = "#111827";
-const BORDER = "#1E2D40";
+import { useTheme } from "./ThemeContext";
 
 function Field({ label, value, onChange, placeholder, type = "text" }) {
+  const { theme } = useTheme();
   const [focused, setFocused] = useState(false);
   return (
     <div style={{ marginBottom: 20 }}>
       <label style={{
-        display: "block", fontSize: 11, color: "#6B7FA3",
+        display: "block", fontSize: 11, color: theme.textMuted,
         fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em",
         textTransform: "uppercase", marginBottom: 6,
       }}>{label}</label>
@@ -23,9 +20,9 @@ function Field({ label, value, onChange, placeholder, type = "text" }) {
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         style={{
-          width: "100%", background: DARK,
-          border: `1px solid ${focused ? ACCENT : BORDER}`,
-          borderRadius: 8, padding: "10px 14px", color: "#CBD5E1",
+          width: "100%", background: theme.inputBg,
+          border: `1px solid ${focused ? theme.accent : theme.border}`,
+          borderRadius: 8, padding: "10px 14px", color: theme.text,
           fontSize: 13, fontFamily: "'DM Mono', monospace",
           outline: "none", transition: "border-color 0.2s",
         }}
@@ -35,6 +32,7 @@ function Field({ label, value, onChange, placeholder, type = "text" }) {
 }
 
 export default function Profile({ session, onBack, onLogout }) {
+  const { theme, isDark, toggleTheme } = useTheme();
   const [fullName,   setFullName]   = useState("");
   const [phone,      setPhone]      = useState("");
   const [location,   setLocation]   = useState("");
@@ -90,56 +88,64 @@ export default function Profile({ session, onBack, onLogout }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: DARK, fontFamily: "'Syne', sans-serif", color: "#CBD5E1" }}>
+    <div style={{ minHeight: "100vh", background: theme.background, fontFamily: "'Syne', sans-serif", color: theme.text, transition: "background 0.3s, color 0.3s" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         textarea:focus, input:focus, button:focus { outline: none; }
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #0A0F1E; }
-        ::-webkit-scrollbar-thumb { background: #1E2D40; border-radius: 3px; }
+        ::-webkit-scrollbar-track { background: ${theme.background}; }
+        ::-webkit-scrollbar-thumb { background: ${theme.border}; border-radius: 3px; }
         textarea { resize: vertical; }
-        .save-btn:hover { background: #00FFB3 !important; transform: translateY(-1px); }
-        .ghost-btn:hover { border-color: ${ACCENT} !important; color: ${ACCENT} !important; }
+        .save-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .ghost-btn:hover { border-color: ${theme.accent} !important; color: ${theme.accent} !important; }
       `}</style>
 
-      {/* ── Header ── */}
+      {/* Header */}
       <div style={{
-        borderBottom: `1px solid ${BORDER}`, padding: "18px 40px",
+        borderBottom: `1px solid ${theme.border}`, padding: "18px 40px",
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        background: "#090E1C", position: "sticky", top: 0, zIndex: 100,
+        background: theme.headerBg, position: "sticky", top: 0, zIndex: 100,
+        boxShadow: isDark ? "none" : "0 1px 4px #0000000A",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 32, height: 32, background: ACCENT, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⚡</div>
-            <span style={{ fontSize: 20, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>
-              Job<span style={{ color: ACCENT }}>Craft</span>
+            <div style={{ width: 32, height: 32, background: theme.accent, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⚡</div>
+            <span style={{ fontSize: 20, fontWeight: 800, color: theme.textStrong, letterSpacing: "-0.02em" }}>
+              Job<span style={{ color: theme.accent }}>Craft</span>
             </span>
           </div>
-          <button onClick={onBack} className="ghost-btn" style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>
+          <button onClick={onBack} className="ghost-btn" style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>
             ← Back
           </button>
         </div>
-        <button onClick={onLogout} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>
-          Sign Out
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button
+            onClick={toggleTheme}
+            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            style={{ background: "transparent", border: "none", fontSize: 20, cursor: "pointer", padding: "4px 6px", lineHeight: 1 }}
+          >{isDark ? "☀️" : "🌙"}</button>
+          <button onClick={onLogout} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>
+            Sign Out
+          </button>
+        </div>
       </div>
 
-      {/* ── Body ── */}
+      {/* Body */}
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "48px 24px" }}>
         <div style={{ marginBottom: 32 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em", marginBottom: 6 }}>My Profile</h1>
-          <p style={{ color: "#6B7FA3", fontSize: 14, lineHeight: 1.6 }}>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: theme.textStrong, letterSpacing: "-0.02em", marginBottom: 6 }}>My Profile</h1>
+          <p style={{ color: theme.textMuted, fontSize: 14, lineHeight: 1.6 }}>
             Save your base resume once — it auto-loads on every tailoring session.
           </p>
         </div>
 
         {loading ? (
-          <div style={{ textAlign: "center", padding: "60px 0", color: "#6B7FA3", fontFamily: "'DM Mono', monospace", fontSize: 13 }}>
+          <div style={{ textAlign: "center", padding: "60px 0", color: theme.textMuted, fontFamily: "'DM Mono', monospace", fontSize: 13 }}>
             Loading profile…
           </div>
         ) : (
-          <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: 32 }}>
+          <div style={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 32 }}>
 
             {/* Contact fields — 2-column grid */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
@@ -150,17 +156,17 @@ export default function Profile({ session, onBack, onLogout }) {
             </div>
 
             {/* Divider */}
-            <div style={{ borderTop: `1px solid ${BORDER}`, margin: "4px 0 24px" }} />
+            <div style={{ borderTop: `1px solid ${theme.border}`, margin: "4px 0 24px" }} />
 
             {/* Base Resume */}
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <label style={{ fontSize: 11, color: "#6B7FA3", fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                <label style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em", textTransform: "uppercase" }}>
                   Base Resume
                 </label>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   {baseResume && (
-                    <span style={{ fontSize: 11, color: "#4B5A70", fontFamily: "'DM Mono', monospace" }}>
+                    <span style={{ fontSize: 11, color: theme.textFaint, fontFamily: "'DM Mono', monospace" }}>
                       {baseResume.length.toLocaleString()} chars
                     </span>
                   )}
@@ -168,7 +174,7 @@ export default function Profile({ session, onBack, onLogout }) {
                   <button
                     className="ghost-btn"
                     onClick={() => fileRef.current.click()}
-                    style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}
+                    style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}
                   >📁 Upload .txt</button>
                 </div>
               </div>
@@ -179,9 +185,9 @@ export default function Profile({ session, onBack, onLogout }) {
                 onBlur={() => setResumeFocused(false)}
                 placeholder={"Paste your honest resume here. This is your master resume — not tailored for any specific job."}
                 style={{
-                  width: "100%", minHeight: 320, background: DARK,
-                  border: `1px solid ${resumeFocused ? ACCENT : BORDER}`,
-                  borderRadius: 10, padding: 16, color: "#CBD5E1",
+                  width: "100%", minHeight: 320, background: theme.inputBg,
+                  border: `1px solid ${resumeFocused ? theme.accent : theme.border}`,
+                  borderRadius: 10, padding: 16, color: theme.text,
                   fontSize: 13, fontFamily: "'DM Mono', monospace",
                   lineHeight: 1.8, transition: "border-color 0.2s",
                 }}
@@ -195,8 +201,8 @@ export default function Profile({ session, onBack, onLogout }) {
                 onClick={handleSave}
                 disabled={saving}
                 style={{
-                  background: saving ? BORDER : ACCENT,
-                  color: saving ? "#4B5A70" : DARK,
+                  background: saving ? theme.border : theme.accent,
+                  color: saving ? theme.textFaint : theme.background,
                   border: "none", borderRadius: 10,
                   padding: "12px 28px", fontSize: 14, fontWeight: 700,
                   cursor: saving ? "not-allowed" : "pointer",
@@ -205,7 +211,7 @@ export default function Profile({ session, onBack, onLogout }) {
               >{saving ? "Saving…" : "Save Profile"}</button>
 
               {saved && (
-                <span style={{ color: ACCENT, fontSize: 13, fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>
+                <span style={{ color: theme.accent, fontSize: 13, fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>
                   ✓ Profile saved
                 </span>
               )}
@@ -213,7 +219,7 @@ export default function Profile({ session, onBack, onLogout }) {
           </div>
         )}
 
-        <p style={{ textAlign: "center", fontSize: 11, color: "#2D3D52", marginTop: 48, fontFamily: "'DM Mono', monospace" }}>
+        <p style={{ textAlign: "center", fontSize: 11, color: theme.textFaint, marginTop: 48, fontFamily: "'DM Mono', monospace" }}>
           Mission HIRED 🔥 · Built by Ghanshyam · Powered by Claude
         </p>
       </div>
