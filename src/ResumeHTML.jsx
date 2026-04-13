@@ -384,11 +384,17 @@ function renderEducation(entries) {
 
 // ─── STEP 6: Assemble the full HTML document ──────────────────────────────────
 
-export function generateResumeHTML(resumeText) {
+export function generateResumeHTML(resumeText, profileLocation = "") {
   const sections = splitSections(resumeText);
 
   // Header
-  const { name, jobTitle, contactParts } = parseHeader(sections.header);
+  const { name, jobTitle, contactParts: rawContactParts } = parseHeader(sections.header);
+
+  // If profileLocation is provided, use it as the city (replacing any auto-detected city)
+  const cityRegex = /^[A-Za-z][A-Za-z\s]+,\s*[A-Za-z]/;
+  const contactParts = profileLocation
+    ? [profileLocation, ...rawContactParts.filter(p => !cityRegex.test(p))]
+    : rawContactParts;
 
   const contactHTML = contactParts.map((item, idx) => {
     const trimmed = item.trim();

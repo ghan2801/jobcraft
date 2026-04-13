@@ -30,19 +30,90 @@ function Tag({ children, color }) {
 
 
 
-function Spinner() {
-  const { theme } = useTheme();
+const LOADER_MESSAGES = [
+  "Reading your resume carefully…",
+  "Analyzing the job description…",
+  "Identifying keyword gaps…",
+  "Injecting ATS-optimized terms…",
+  "Reframing your experience bullets…",
+  "Scoring your match against the JD…",
+  "Polishing the final resume…",
+  "Almost done — running final checks…",
+];
+
+function LoadingMessages({ isRefine = false }) {
+  const { theme, isDark } = useTheme();
+  const [msgIndex, setMsgIndex] = useState(0);
+  const [fade, setFade] = useState(true);
+  const [progress, setProgress] = useState(0);
+  const [done, setDone] = useState(false);
+  const startTime = useRef(Date.now());
+
+  // Message cycling: 0-3 play through, then 4-7 loop
+  useEffect(() => {
+    const id = setInterval(() => {
+      setFade(false);
+      setTimeout(() => {
+        setMsgIndex(prev => {
+          if (prev < LOADER_MESSAGES.length - 1) return prev + 1;
+          return 4; // loop back to message 5 (index 4)
+        });
+        setFade(true);
+      }, 300);
+    }, 2500);
+    return () => clearInterval(id);
+  }, []);
+
+  // Progress bar: 0→85% over 20 seconds
+  useEffect(() => {
+    const id = setInterval(() => {
+      const elapsed = (Date.now() - startTime.current) / 1000;
+      const p = Math.min(85, (elapsed / 20) * 85);
+      setProgress(p);
+    }, 100);
+    return () => clearInterval(id);
+  }, []);
+
+  const msg = isRefine ? LOADER_MESSAGES[msgIndex].replace("Tailoring", "Refining") : LOADER_MESSAGES[msgIndex];
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "40px 0" }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, padding: "36px 0" }}>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeMsg { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        .loader-msg { animation: fadeMsg 0.3s ease; }
+      `}</style>
+      {/* Spinner ring */}
       <div style={{
-        width: 44, height: 44,
+        width: 40, height: 40,
         border: `3px solid ${theme.border}`,
         borderTop: `3px solid ${theme.accent}`,
         borderRadius: "50%",
         animation: "spin 0.8s linear infinite",
+        flexShrink: 0,
       }} />
-      <p style={{ color: theme.textMuted, fontSize: 13, fontFamily: "'DM Mono', monospace" }}>Tailoring your resume…</p>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      {/* Message */}
+      <p
+        key={msgIndex}
+        className="loader-msg"
+        style={{
+          color: theme.text, fontSize: 14, fontFamily: "'DM Mono', monospace",
+          fontWeight: 500, textAlign: "center",
+          opacity: fade ? 1 : 0, transition: "opacity 0.3s",
+        }}
+      >{msg}</p>
+      {/* Progress bar */}
+      <div style={{ width: "100%", maxWidth: 320, height: 4, background: theme.border, borderRadius: 4, overflow: "hidden" }}>
+        <div style={{
+          height: "100%", width: `${progress}%`,
+          background: theme.accent,
+          borderRadius: 4, transition: "width 0.15s linear",
+        }} />
+      </div>
+      {/* Subtext */}
+      <p style={{ color: theme.textFaint, fontSize: 11, fontFamily: "'DM Mono', monospace", textAlign: "center" }}>
+        This usually takes 15–20 seconds
+      </p>
     </div>
   );
 }
@@ -95,6 +166,7 @@ function JobCraft({ session, onLogout, onShowHistory, onShowProfile }) {
   const [activeTab, setActiveTab] = useState("diff");
   const [toast, setToast] = useState("");
   const [profileResume, setProfileResume] = useState("");
+  const [profileLocation, setProfileLocation] = useState("");
   const [resumeSource, setResumeSource] = useState("paste");
   const [showWelcome, setShowWelcome] = useState(false);
   const [changeSummary, setChangeSummary] = useState(null);
@@ -108,7 +180,7 @@ function JobCraft({ session, onLogout, onShowHistory, onShowProfile }) {
     async function loadProfile() {
       const { data } = await supabase
         .from("profiles")
-        .select("base_resume")
+        .select("base_resume, location")
         .eq("id", session.user.id)
         .single();
       if (data?.base_resume) {
@@ -118,6 +190,7 @@ function JobCraft({ session, onLogout, onShowHistory, onShowProfile }) {
       } else {
         setShowWelcome(true);
       }
+      if (data?.location) setProfileLocation(data.location);
     }
     loadProfile();
   }, []);
@@ -614,7 +687,7 @@ ${changesList}`,
             <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
               <button className="btn-ghost" onClick={() => setJD(sampleJD)} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "8px 16px", fontSize: 13, cursor: "pointer" }}>✨ Load sample JD</button>
             </div>
-            {loading && <Spinner />}
+            {loading && <LoadingMessages />}
             {error && <p style={{ color: "#FF6B6B", fontSize: 13, marginTop: 12 }}>{error}</p>}
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20 }}>
               <button className="btn-ghost" onClick={() => setStep(0)} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 10, padding: "12px 24px", fontSize: 14, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>← Back</button>
@@ -651,7 +724,7 @@ ${changesList}`,
               <button
                 className="btn-primary"
                 onClick={() => {
-                  const html = generateResumeHTML(tailored);
+                  const html = generateResumeHTML(tailored, profileLocation);
                   const tab = window.open("", "_blank");
                   tab.document.write(html);
                   tab.document.close();
@@ -689,7 +762,7 @@ ${changesList}`,
                   <div>
                     <p style={{ color: theme.textMuted, fontSize: 13, marginBottom: 16 }}>Tell the AI what to fix and it'll refine the resume.</p>
                     <textarea value={feedback} onChange={e => setFeedback(e.target.value)} placeholder='e.g. "Add more emphasis on leadership experience"' style={{ width: "100%", minHeight: 100, background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 14, color: theme.text, fontSize: 13, fontFamily: "'DM Mono', monospace", lineHeight: 1.8 }} />
-                    {loading && <Spinner />}
+                    {loading && <LoadingMessages isRefine />}
                     {error && <p style={{ color: "#FF6B6B", fontSize: 13, marginTop: 8 }}>{error}</p>}
                     <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
                       <button className="btn-primary" onClick={refineWithFeedback} disabled={!feedback.trim() || loading} style={{ background: feedback.trim() && !loading ? theme.accent : theme.border, color: feedback.trim() && !loading ? theme.background : theme.textFaint, border: "none", borderRadius: 10, padding: "11px 24px", fontSize: 14, fontWeight: 700, cursor: feedback.trim() && !loading ? "pointer" : "not-allowed", fontFamily: "'Syne', sans-serif" }}>✨ Refine</button>
