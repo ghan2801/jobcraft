@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { generateResumeHTML } from "./ResumeHTML";
+import { generateCoverLetterHTML } from "./CoverLetterHTML";
 import { supabase } from "./supabaseClient";
 import Login from "./Login";
 import History from "./History";
@@ -43,10 +44,19 @@ const LOADER_MESSAGES = [
 
 const KEYWORD_PILLS = ["ATS Optimized", "Keywords Added", "Score Boosted", "Gaps Filled", "Impact Enhanced"];
 
+const COVER_MESSAGES = [
+  { emoji: "✍️", action: "Crafting",     rest: " your opening…" },
+  { emoji: "🎯", action: "Connecting",   rest: " your experience…" },
+  { emoji: "💼", action: "Highlighting", rest: " key achievements…" },
+  { emoji: "✨", action: "Polishing",    rest: " your close…" },
+];
+
+const COVER_PILLS = ["Opening Crafted", "Tone Polished", "Keywords Woven", "Flow Refined", "Impact Added"];
+
 const LEFT_LINES  = [55, 82, 63, 90, 38];
 const RIGHT_LINES = [55, 82, 63, 90, 38];
 
-function LoadingMessages({ isRefine = false }) {
+function LoadingMessages({ isRefine = false, customMessages, customPills, rightLabel, showAts = true }) {
   const { theme, isDark } = useTheme();
   const [msgIndex,  setMsgIndex]  = useState(0);
   const [fade,      setFade]      = useState(true);
@@ -55,18 +65,21 @@ function LoadingMessages({ isRefine = false }) {
   const [pillIndex, setPillIndex] = useState(0);
   const startTime = useRef(Date.now());
   const ac = theme.accent;
+  const msgs  = customMessages || LOADER_MESSAGES;
+  const pills = customPills    || KEYWORD_PILLS;
 
-  // Message cycling: play 0-7, then loop from index 4
+  // Message cycling: play through all messages, then loop from midpoint
   useEffect(() => {
+    const loopFrom = Math.max(0, Math.floor(msgs.length / 2));
     const id = setInterval(() => {
       setFade(false);
       setTimeout(() => {
-        setMsgIndex(prev => (prev < LOADER_MESSAGES.length - 1 ? prev + 1 : 4));
+        setMsgIndex(prev => (prev < msgs.length - 1 ? prev + 1 : loopFrom));
         setFade(true);
       }, 300);
     }, 2500);
     return () => clearInterval(id);
-  }, []);
+  }, [msgs]);
 
   // Progress bar: 0 → 85 % over 25 s
   useEffect(() => {
@@ -86,12 +99,12 @@ function LoadingMessages({ isRefine = false }) {
   // Keyword pill cycling — new pill every 2 s
   useEffect(() => {
     const id = setInterval(() => {
-      setPillIndex(prev => (prev + 1) % KEYWORD_PILLS.length);
+      setPillIndex(prev => (prev + 1) % pills.length);
     }, 2000);
     return () => clearInterval(id);
-  }, []);
+  }, [pills]);
 
-  const msg = LOADER_MESSAGES[msgIndex];
+  const msg = msgs[msgIndex] || msgs[0];
 
   return (
     <div style={{
@@ -213,7 +226,7 @@ function LoadingMessages({ isRefine = false }) {
                 animation: "ldr-pill 1.85s ease-out forwards",
               }}
             >
-              {KEYWORD_PILLS[pillIndex]}
+              {pills[pillIndex]}
             </div>
           </div>
 
@@ -245,7 +258,7 @@ function LoadingMessages({ isRefine = false }) {
             fontSize: 10, color: ac,
             fontFamily: "'DM Mono', monospace",
             letterSpacing: "0.06em", fontWeight: 600,
-          }}>{isRefine ? "Refined Resume" : "Tailored Resume"}</span>
+          }}>{rightLabel ?? (isRefine ? "Refined Resume" : "Tailored Resume")}</span>
         </div>
       </div>
 
@@ -278,14 +291,16 @@ function LoadingMessages({ isRefine = false }) {
       </div>
 
       {/* ── ATS COUNTER ──────────────────────────────────────── */}
-      <p style={{
-        color: theme.textMuted, fontSize: 12,
-        fontFamily: "'DM Mono', monospace",
-        textAlign: "center", margin: 0,
-        animation: atsPhase === 1 ? "ldr-ats-blink 1.3s ease-in-out infinite" : "none",
-      }}>
-        {atsPhase === 0 ? "ATS Score: calculating…" : "ATS Score: ██░░ boosting…"}
-      </p>
+      {showAts && (
+        <p style={{
+          color: theme.textMuted, fontSize: 12,
+          fontFamily: "'DM Mono', monospace",
+          textAlign: "center", margin: 0,
+          animation: atsPhase === 1 ? "ldr-ats-blink 1.3s ease-in-out infinite" : "none",
+        }}>
+          {atsPhase === 0 ? "ATS Score: calculating…" : "ATS Score: ██░░ boosting…"}
+        </p>
+      )}
     </div>
   );
 }
@@ -346,6 +361,11 @@ function JobCraft({ session, onLogout, onShowHistory, onShowProfile }) {
   const [reviewableChanges, setReviewableChanges] = useState([]);
   const [acceptedChanges, setAcceptedChanges] = useState(new Set());
   const [isReviewMode, setIsReviewMode] = useState(false);
+  const [coverLetter,        setCoverLetter]        = useState("");
+  const [coverLetterLoading, setCoverLetterLoading] = useState(false);
+  const [coverLetterError,   setCoverLetterError]   = useState("");
+  const [coverLetterCopied,  setCoverLetterCopied]  = useState(false);
+  const [applicationId,      setApplicationId]      = useState(null);
   const fileRef = useRef();
 
   useEffect(() => {
@@ -375,7 +395,7 @@ function JobCraft({ session, onLogout, onShowHistory, onShowProfile }) {
 
   async function saveApplication({ tailoredResume, origAtsScore, newAtsScore, title, company }) {
     try {
-      await supabase.from("applications").insert({
+      const { data } = await supabase.from("applications").insert({
         user_id:            session.user.id,
         company_name:       company,
         job_title:          title,
@@ -385,7 +405,8 @@ function JobCraft({ session, onLogout, onShowHistory, onShowProfile }) {
         original_resume:    resume,
         job_description:    jd,
         status:             "Applied",
-      });
+      }).select("id").single();
+      if (data?.id) setApplicationId(data.id);
       setToast("Application saved ✓");
       setTimeout(() => setToast(""), 3000);
     } catch {
@@ -676,6 +697,60 @@ ${changesList}`,
     }
   }
 
+  async function generateCoverLetter() {
+    setCoverLetterLoading(true);
+    setCoverLetterError("");
+    const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    try {
+      const response = await fetch("/api/proxy", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 1500,
+          messages: [{
+            role: "user",
+            content: `You are an expert cover letter writer.
+Write a professional, compelling cover letter based on the information below.
+
+Rules:
+- Maximum 3 paragraphs
+- Paragraph 1: Strong opening, mention role and company, hook the reader immediately
+- Paragraph 2: Connect 2-3 specific achievements from resume to JD requirements
+- Paragraph 3: Forward-looking close, express genuine interest, call to action
+- Tone: confident but not arrogant
+- Do NOT use generic phrases like 'I am writing to apply' or 'I would be a great fit'
+- Do NOT use 'I am passionate about'
+- Make it sound human, specific, intelligent
+- Include: ${today} as the date, Hiring Manager greeting, proper sign-off with candidate name
+- Length: 250-320 words maximum
+
+TAILORED RESUME:
+${tailored}
+
+JOB DESCRIPTION:
+${jd}
+
+COMPANY: ${companyName}
+ROLE: ${jobTitle}
+
+Return ONLY the cover letter text. No JSON. No explanation. Just the letter.`,
+          }],
+        }),
+      });
+      const data = await response.json();
+      const letter = data.content.map(b => b.text || "").join("").trim();
+      setCoverLetter(letter);
+      if (applicationId) {
+        await supabase.from("applications").update({ cover_letter: letter }).eq("id", applicationId);
+      }
+    } catch {
+      setCoverLetterError("Failed to generate cover letter. Please try again.");
+    } finally {
+      setCoverLetterLoading(false);
+    }
+  }
+
   const handleFile = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -712,6 +787,10 @@ ${changesList}`,
             setAcceptedChanges(new Set());
             setIsReviewMode(false);
             setError("");
+            setCoverLetter("");
+            setCoverLetterLoading(false);
+            setCoverLetterError("");
+            setApplicationId(null);
           }}
         >
           <div style={{ width: 32, height: 32, background: theme.accent, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⚡</div>
@@ -923,9 +1002,9 @@ ${changesList}`,
 
             <div style={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 16, overflow: "hidden" }}>
               <div style={{ borderBottom: `1px solid ${theme.border}`, display: "flex" }}>
-                {["diff", "gap", "review", "tailored", "feedback"].map(tab => (
+                {["diff", "gap", "review", "tailored", "cover", "feedback"].map(tab => (
                   <button key={tab} onClick={() => setActiveTab(tab)} style={{ background: "none", border: "none", padding: "14px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", color: activeTab === tab ? theme.accent : theme.textFaint, borderBottom: activeTab === tab ? `2px solid ${theme.accent}` : "2px solid transparent", fontFamily: "'Syne', sans-serif" }}>
-                    {tab === "diff" ? "📊 Changes" : tab === "gap" ? "🔍 Gap Report" : tab === "review" ? "✏️ Review" : tab === "tailored" ? "📄 New Resume" : "💬 Refine"}
+                    {tab === "diff" ? "📊 Changes" : tab === "gap" ? "🔍 Gap Report" : tab === "review" ? "✏️ Review" : tab === "tailored" ? "📄 New Resume" : tab === "cover" ? "✉️ Cover Letter" : "💬 Refine"}
                   </button>
                 ))}
               </div>
@@ -944,6 +1023,93 @@ ${changesList}`,
                   />
                 )}
                 {activeTab === "tailored" && <pre style={{ color: theme.text, fontSize: 12.5, fontFamily: "'DM Mono', monospace", lineHeight: 1.9, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{tailored}</pre>}
+
+                {activeTab === "cover" && (
+                  <div>
+                    {!coverLetter && !coverLetterLoading && (
+                      <div style={{ textAlign: "center", padding: "40px 0" }}>
+                        <p style={{ color: theme.textMuted, fontSize: 14, marginBottom: 24, lineHeight: 1.7 }}>
+                          Generate a tailored cover letter for <strong style={{ color: theme.textStrong }}>{jobTitle || "this role"}</strong>
+                          {companyName ? <> at <strong style={{ color: theme.textStrong }}>{companyName}</strong></> : ""}.
+                        </p>
+                        <button
+                          onClick={generateCoverLetter}
+                          style={{ background: theme.accent, color: theme.background, border: "none", borderRadius: 10, padding: "13px 32px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}
+                        >
+                          ✨ Generate Cover Letter
+                        </button>
+                        {coverLetterError && (
+                          <p style={{ color: "#FF6B6B", fontSize: 13, marginTop: 16 }}>{coverLetterError}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {coverLetterLoading && (
+                      <LoadingMessages
+                        customMessages={COVER_MESSAGES}
+                        customPills={COVER_PILLS}
+                        rightLabel="Cover Letter"
+                        showAts={false}
+                      />
+                    )}
+
+                    {coverLetter && !coverLetterLoading && (
+                      <div>
+                        <div style={{
+                          background: theme.cardAlt,
+                          border: `1px solid ${theme.border}`,
+                          borderRadius: 12,
+                          padding: 32,
+                          fontFamily: "Georgia, serif",
+                          fontSize: 14,
+                          lineHeight: 1.8,
+                          color: theme.text,
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-word",
+                        }}>
+                          {coverLetter}
+                        </div>
+                        <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
+                          <button
+                            onClick={async () => {
+                              await navigator.clipboard.writeText(coverLetter);
+                              setCoverLetterCopied(true);
+                              setTimeout(() => setCoverLetterCopied(false), 2000);
+                            }}
+                            style={{
+                              background: coverLetterCopied ? theme.accent : "transparent",
+                              color: coverLetterCopied ? theme.background : theme.textMuted,
+                              border: `1px solid ${coverLetterCopied ? theme.accent : theme.border}`,
+                              borderRadius: 8, padding: "9px 18px", fontSize: 13,
+                              cursor: "pointer", fontFamily: "'DM Mono', monospace",
+                              transition: "all 0.2s",
+                            }}
+                          >
+                            {coverLetterCopied ? "✓ Copied!" : "📋 Copy to Clipboard"}
+                          </button>
+                          <button
+                            onClick={() => {
+                              const candidateName = tailored.split("\n")[0].split("|")[0].trim();
+                              const html = generateCoverLetterHTML(coverLetter, candidateName);
+                              const tab = window.open("", "_blank");
+                              if (tab) { tab.document.write(html); tab.document.close(); }
+                            }}
+                            style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "9px 18px", fontSize: 13, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}
+                          >
+                            🖨️ Print / Save as PDF
+                          </button>
+                          <button
+                            onClick={() => { setCoverLetter(""); setCoverLetterError(""); }}
+                            style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "9px 18px", fontSize: 13, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}
+                          >
+                            🔄 Regenerate
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {activeTab === "feedback" && (
                   <div>
                     <p style={{ color: theme.textMuted, fontSize: 13, marginBottom: 16 }}>Tell the AI what to fix and it'll refine the resume.</p>
