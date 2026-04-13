@@ -7,6 +7,7 @@ import Profile from "./Profile";
 import DiffView from "./DiffView";
 import ChangeSummary from "./ChangeSummary";
 import GapReport from "./GapReport";
+import ReviewMode from "./ReviewMode";
 
 const ACCENT = "#00E5A0";
 const DARK = "#0A0F1E";
@@ -97,6 +98,9 @@ function JobCraft({ session, onLogout, onShowHistory, onShowProfile }) {
   const [showWelcome, setShowWelcome] = useState(false);
   const [changeSummary, setChangeSummary] = useState(null);
   const [gapReport, setGapReport] = useState(null);
+  const [reviewableChanges, setReviewableChanges] = useState([]);
+  const [acceptedChanges, setAcceptedChanges] = useState(new Set());
+  const [isReviewMode, setIsReviewMode] = useState(false);
   const fileRef = useRef();
 
   useEffect(() => {
@@ -194,7 +198,7 @@ We offer competitive salary, equity, and remote-first culture.`;
         },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
-          max_tokens: 6000,
+          max_tokens: 8000,
           messages: [{
             role: "user",
             content: `You are an expert resume coach and ATS optimization specialist.
@@ -259,7 +263,20 @@ JSON format:
     "job_fit_score": "high/moderate/low",
     "job_fit_reason": "one sentence explaining the fit assessment",
     "recommended_action": "apply_confidently/apply_with_preparation/consider_skipping"
-  }
+  },
+  "reviewable_changes": [
+    {
+      "id": "change_1",
+      "type": "title_change/keyword_added/section_reframed/skill_added",
+      "description": "short description of this specific change",
+      "original_text": "original text if applicable, else empty string",
+      "new_text": "the new text added or changed",
+      "location": "where in the resume this appears",
+      "ats_impact": <number 1-15>,
+      "risk_level": "safe/moderate/risky",
+      "risk_reason": "explanation only if moderate or risky, else empty string"
+    }
+  ]
 }
 
 Where:
@@ -269,6 +286,7 @@ Where:
 - company_name = the hiring company name as stated in the JD (e.g. "Acme Corp")
 - change_summary = detailed breakdown of every meaningful change made
 - gap_report = keyword gap analysis comparing resume against JD requirements
+- reviewable_changes = list of 5-12 individual changes the user can accept/reject, each with ats_impact (how many ATS points that change contributes)
 
 Rules:
 - Keep the same structure and format as the original resume
@@ -295,6 +313,9 @@ ${jd}`
       setCompanyName(parsed.company_name || "");
       setChangeSummary(parsed.change_summary || null);
       setGapReport(parsed.gap_report || null);
+      const rc = parsed.reviewable_changes || [];
+      setReviewableChanges(rc);
+      setAcceptedChanges(new Set(rc.map(c => c.id)));
       setStep(2);
       // Save immediately using parsed values — state setters above are async
       saveApplication({
@@ -354,6 +375,56 @@ ${jd}`
       setFeedback("");
     } catch (e) {
       setError("Refinement failed. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function regenerateWithChoices(acceptedIds) {
+    const accepted = reviewableChanges.filter(c => acceptedIds.has(c.id));
+    if (accepted.length === 0) return;
+    setLoading(true);
+    setError("");
+    try {
+      const changesList = accepted.map((c, i) =>
+        `${i + 1}. [${c.type}] ${c.description}${c.new_text ? ` — use: "${c.new_text}"` : ""}${c.location ? ` (${c.location})` : ""}`
+      ).join("\n");
+      const response = await fetch("/api/proxy", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 4000,
+          messages: [{
+            role: "user",
+            content: `You are an expert resume coach. Regenerate the resume applying ONLY the listed accepted changes. Return ONLY a JSON object with no markdown, no backticks.
+
+JSON format:
+{
+  "tailored_resume": "full updated resume text",
+  "ats_score": <number 0-100>
+}
+
+ORIGINAL RESUME:
+${resume}
+
+JOB DESCRIPTION:
+${jd}
+
+ACCEPTED CHANGES TO APPLY (apply these and nothing else):
+${changesList}`,
+          }],
+        }),
+      });
+      const data  = await response.json();
+      const text  = data.content.map(b => b.text || "").join("");
+      const clean = text.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(clean);
+      setTailored(parsed.tailored_resume);
+      setAtsScore(parsed.ats_score);
+      setActiveTab("tailored");
+    } catch {
+      setError("Regeneration failed. Try again.");
     } finally {
       setLoading(false);
     }
@@ -586,15 +657,26 @@ ${jd}`
 
             <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden" }}>
               <div style={{ borderBottom: `1px solid ${BORDER}`, display: "flex" }}>
-                {["diff", "gap", "tailored", "feedback"].map(tab => (
-                  <button key={tab} onClick={() => setActiveTab(tab)} style={{ background: "none", border: "none", padding: "14px 22px", fontSize: 13, fontWeight: 600, cursor: "pointer", color: activeTab === tab ? ACCENT : "#4B5A70", borderBottom: activeTab === tab ? `2px solid ${ACCENT}` : "2px solid transparent", fontFamily: "'Syne', sans-serif" }}>
-                    {tab === "diff" ? "📊 Changes" : tab === "gap" ? "🔍 Gap Report" : tab === "tailored" ? "📄 New Resume" : "💬 Refine"}
+                {["diff", "gap", "review", "tailored", "feedback"].map(tab => (
+                  <button key={tab} onClick={() => setActiveTab(tab)} style={{ background: "none", border: "none", padding: "14px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", color: activeTab === tab ? ACCENT : "#4B5A70", borderBottom: activeTab === tab ? `2px solid ${ACCENT}` : "2px solid transparent", fontFamily: "'Syne', sans-serif" }}>
+                    {tab === "diff" ? "📊 Changes" : tab === "gap" ? "🔍 Gap Report" : tab === "review" ? "✏️ Review" : tab === "tailored" ? "📄 New Resume" : "💬 Refine"}
                   </button>
                 ))}
               </div>
               <div style={{ padding: 24 }}>
                 {activeTab === "diff" && <ChangeSummary changeSummary={changeSummary} original={resume} tailored={tailored} />}
                 {activeTab === "gap" && <GapReport gapReport={gapReport} originalAtsScore={originalAtsScore} atsScore={atsScore} />}
+                {activeTab === "review" && (
+                  <ReviewMode
+                    reviewableChanges={reviewableChanges}
+                    acceptedChanges={acceptedChanges}
+                    setAcceptedChanges={setAcceptedChanges}
+                    originalAtsScore={originalAtsScore}
+                    atsScore={atsScore}
+                    onApplyChoices={regenerateWithChoices}
+                    loading={loading}
+                  />
+                )}
                 {activeTab === "tailored" && <pre style={{ color: "#CBD5E1", fontSize: 12.5, fontFamily: "'DM Mono', monospace", lineHeight: 1.9, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{tailored}</pre>}
                 {activeTab === "feedback" && (
                   <div>
@@ -604,7 +686,7 @@ ${jd}`
                     {error && <p style={{ color: "#FF6B6B", fontSize: 13, marginTop: 8 }}>{error}</p>}
                     <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
                       <button className="btn-primary" onClick={refineWithFeedback} disabled={!feedback.trim() || loading} style={{ background: feedback.trim() && !loading ? ACCENT : BORDER, color: feedback.trim() && !loading ? DARK : "#4B5A70", border: "none", borderRadius: 10, padding: "11px 24px", fontSize: 14, fontWeight: 700, cursor: feedback.trim() && !loading ? "pointer" : "not-allowed", fontFamily: "'Syne', sans-serif" }}>✨ Refine</button>
-                      <button className="btn-ghost" onClick={() => { setStep(0); setTailored(""); setAtsScore(null); setOriginalAtsScore(null); setJobTitle(""); setCompanyName(""); setResume(""); setJD(""); setChangeSummary(null); setGapReport(null); }} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 10, padding: "11px 22px", fontSize: 14, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>Start Over</button>
+                      <button className="btn-ghost" onClick={() => { setStep(0); setTailored(""); setAtsScore(null); setOriginalAtsScore(null); setJobTitle(""); setCompanyName(""); setResume(""); setJD(""); setChangeSummary(null); setGapReport(null); setReviewableChanges([]); setAcceptedChanges(new Set()); setIsReviewMode(false); }} style={{ background: "transparent", border: `1px solid ${BORDER}`, color: "#6B7FA3", borderRadius: 10, padding: "11px 22px", fontSize: 14, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>Start Over</button>
                     </div>
                   </div>
                 )}
