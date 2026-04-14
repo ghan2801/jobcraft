@@ -10,6 +10,10 @@ import ChangeSummary from "./ChangeSummary";
 import GapReport from "./GapReport";
 import ReviewMode from "./ReviewMode";
 import { ThemeContext, DARK_THEME, LIGHT_THEME, useTheme } from "./ThemeContext";
+import * as pdfjsLib from "pdfjs-dist";
+import mammoth from "mammoth";
+import pdfjsWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 
 function Tag({ children, color }) {
   const { theme } = useTheme();
@@ -366,6 +370,8 @@ function JobCraft({ session, onLogout, onShowHistory, onShowProfile }) {
   const [coverLetterError,   setCoverLetterError]   = useState("");
   const [coverLetterCopied,  setCoverLetterCopied]  = useState(false);
   const [applicationId,      setApplicationId]      = useState(null);
+  const [fileProcessing,     setFileProcessing]     = useState(false);
+  const [fileError,          setFileError]          = useState("");
   const fileRef = useRef();
 
   useEffect(() => {
@@ -751,12 +757,44 @@ Return ONLY the cover letter text. No JSON. No explanation. Just the letter.`,
     }
   }
 
-  const handleFile = (e) => {
+  const handleFile = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setResume(ev.target.result);
-    reader.readAsText(file);
+    // Reset so re-uploading the same filename triggers onChange again
+    e.target.value = "";
+    setFileProcessing(true);
+    setFileError("");
+    setResume("");
+    try {
+      const name = file.name.toLowerCase();
+      let text = "";
+      if (name.endsWith(".pdf")) {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const pages = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          pages.push(
+            content.items.map(item => item.str + (item.hasEOL ? "\n" : "")).join("")
+          );
+        }
+        text = pages.join("\n\n");
+      } else if (name.endsWith(".doc") || name.endsWith(".docx")) {
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        text = result.value;
+      } else {
+        // .txt or any plain-text file
+        text = await file.text();
+      }
+      if (!text.trim()) throw new Error("No text extracted");
+      setResume(text);
+    } catch {
+      setFileError("❌ Could not read this file. Please try copy-pasting your resume text.");
+    } finally {
+      setFileProcessing(false);
+    }
   };
 
   return (
@@ -919,17 +957,37 @@ Return ONLY the cover letter text. No JSON. No explanation. Just the letter.`,
 
               {/* Tab C: Upload */}
               {resumeSource === "upload" && (
-                <div style={{ textAlign: "center", padding: "36px 0" }}>
-                  <input ref={fileRef} type="file" accept=".txt,.md" onChange={handleFile} style={{ display: "none" }} />
-                  <button
-                    className="btn-ghost"
-                    onClick={() => fileRef.current.click()}
-                    style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "10px 22px", fontSize: 13, cursor: "pointer" }}
-                  >📁 Choose .txt / .md file</button>
-                  {resume && (
-                    <p style={{ color: theme.accent, fontSize: 12, fontFamily: "'DM Mono', monospace", marginTop: 12 }}>
-                      ✓ File loaded ({resume.length.toLocaleString()} chars)
-                    </p>
+                <div style={{ padding: "28px 0" }}>
+                  <div style={{ textAlign: "center" }}>
+                    <input ref={fileRef} type="file" accept=".txt,.pdf,.doc,.docx" onChange={handleFile} style={{ display: "none" }} />
+                    <button
+                      className="btn-ghost"
+                      onClick={() => fileRef.current.click()}
+                      disabled={fileProcessing}
+                      style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "10px 22px", fontSize: 13, cursor: fileProcessing ? "not-allowed" : "pointer", opacity: fileProcessing ? 0.6 : 1 }}
+                    >📁 Upload PDF, DOC or TXT</button>
+                    {fileProcessing && (
+                      <p style={{ color: theme.textMuted, fontSize: 12, fontFamily: "'DM Mono', monospace", marginTop: 10 }}>
+                        📄 Reading your file…
+                      </p>
+                    )}
+                    {fileError && !fileProcessing && (
+                      <p style={{ color: "#FF6B6B", fontSize: 12, fontFamily: "'DM Mono', monospace", marginTop: 10 }}>
+                        {fileError}
+                      </p>
+                    )}
+                  </div>
+                  {resume && !fileProcessing && !fileError && (
+                    <div style={{ marginTop: 18 }}>
+                      <p style={{ color: theme.accent, fontSize: 12, fontFamily: "'DM Mono', monospace", marginBottom: 10 }}>
+                        ✅ Resume extracted — {resume.length.toLocaleString()} characters
+                      </p>
+                      <div style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 16, minHeight: 100, maxHeight: 200, overflow: "auto" }}>
+                        <pre style={{ color: theme.textMuted, fontSize: 12, fontFamily: "'DM Mono', monospace", lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                          {resume.slice(0, 600)}{resume.length > 600 ? "\n…" : ""}
+                        </pre>
+                      </div>
+                    </div>
                   )}
                 </div>
               )}

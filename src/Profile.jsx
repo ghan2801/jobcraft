@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabaseClient";
 import { useTheme } from "./ThemeContext";
+import * as pdfjsLib from "pdfjs-dist";
+import mammoth from "mammoth";
+import pdfjsWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 
 function Field({ label, value, onChange, placeholder, type = "text" }) {
   const { theme } = useTheme();
@@ -41,7 +45,9 @@ export default function Profile({ session, onBack, onLogout }) {
   const [loading,    setLoading]    = useState(true);
   const [saving,     setSaving]     = useState(false);
   const [saved,      setSaved]      = useState(false);
-  const [resumeFocused, setResumeFocused] = useState(false);
+  const [resumeFocused,  setResumeFocused]  = useState(false);
+  const [fileProcessing, setFileProcessing] = useState(false);
+  const [fileError,      setFileError]      = useState("");
   const fileRef = useRef();
 
   useEffect(() => { fetchProfile(); }, []);
@@ -79,12 +85,41 @@ export default function Profile({ session, onBack, onLogout }) {
     setTimeout(() => setSaved(false), 3000);
   }
 
-  function handleFileUpload(e) {
+  async function handleFileUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => setBaseResume(ev.target.result);
-    reader.readAsText(file);
+    e.target.value = "";
+    setFileProcessing(true);
+    setFileError("");
+    try {
+      const name = file.name.toLowerCase();
+      let text = "";
+      if (name.endsWith(".pdf")) {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const pages = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          pages.push(
+            content.items.map(item => item.str + (item.hasEOL ? "\n" : "")).join("")
+          );
+        }
+        text = pages.join("\n\n");
+      } else if (name.endsWith(".doc") || name.endsWith(".docx")) {
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        text = result.value;
+      } else {
+        text = await file.text();
+      }
+      if (!text.trim()) throw new Error("No text extracted");
+      setBaseResume(text);
+    } catch {
+      setFileError("❌ Could not read this file. Please try copy-pasting your resume text.");
+    } finally {
+      setFileProcessing(false);
+    }
   }
 
   return (
@@ -170,17 +205,33 @@ export default function Profile({ session, onBack, onLogout }) {
                       {baseResume.length.toLocaleString()} chars
                     </span>
                   )}
-                  <input ref={fileRef} type="file" accept=".txt,.md" onChange={handleFileUpload} style={{ display: "none" }} />
+                  <input ref={fileRef} type="file" accept=".txt,.pdf,.doc,.docx" onChange={handleFileUpload} style={{ display: "none" }} />
                   <button
                     className="ghost-btn"
                     onClick={() => fileRef.current.click()}
-                    style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}
-                  >📁 Upload .txt</button>
+                    disabled={fileProcessing}
+                    style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: fileProcessing ? "not-allowed" : "pointer", fontFamily: "'DM Mono', monospace", opacity: fileProcessing ? 0.6 : 1 }}
+                  >📁 Upload PDF, DOC or TXT</button>
                 </div>
               </div>
+              {fileProcessing && (
+                <p style={{ color: theme.textMuted, fontSize: 11, fontFamily: "'DM Mono', monospace", marginBottom: 8 }}>
+                  📄 Reading your file…
+                </p>
+              )}
+              {fileError && !fileProcessing && (
+                <p style={{ color: "#FF6B6B", fontSize: 11, fontFamily: "'DM Mono', monospace", marginBottom: 8 }}>
+                  {fileError}
+                </p>
+              )}
+              {baseResume && !fileProcessing && !fileError && (
+                <p style={{ color: theme.accent, fontSize: 11, fontFamily: "'DM Mono', monospace", marginBottom: 8 }}>
+                  ✅ Resume extracted — {baseResume.length.toLocaleString()} characters
+                </p>
+              )}
               <textarea
                 value={baseResume}
-                onChange={e => setBaseResume(e.target.value)}
+                onChange={e => { setBaseResume(e.target.value); setFileError(""); }}
                 onFocus={() => setResumeFocused(true)}
                 onBlur={() => setResumeFocused(false)}
                 placeholder={"Paste your honest resume here. This is your master resume — not tailored for any specific job."}
