@@ -276,6 +276,37 @@ function parseEducation(lines) {
   return entries;
 }
 
+// ─── Phrase highlighter ───────────────────────────────────────────────────────
+//
+// Applied once to the fully-assembled body HTML (not per-section).
+// For each phrase it finds and bolds only the FIRST occurrence in the entire
+// document, skipping any text inside HTML tags so attributes are never touched.
+// Longest phrases are processed first so "reduced effort by 40%" matches before
+// a shorter sub-phrase like "40%".
+
+function highlightPhrases(html, phrases) {
+  if (!phrases || phrases.length === 0) return html;
+  const sorted = [...phrases].sort((a, b) => b.length - a.length);
+  for (const phrase of sorted) {
+    if (!phrase.trim()) continue;
+    // Match the phrase against already-HTML-escaped content
+    const escapedPhrase = esc(phrase);
+    const rePattern = escapedPhrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // Alternation: either an HTML tag (leave intact) or the phrase (bold once)
+    let done = false;
+    html = html.replace(
+      new RegExp(`(<[^>]*>)|${rePattern}`, "g"),
+      (match, tag) => {
+        if (tag !== undefined) return tag;   // it's an HTML tag — pass through
+        if (done) return match;              // already bolded — leave subsequent copies plain
+        done = true;
+        return `<strong style="font-weight:700;">${match}</strong>`;
+      }
+    );
+  }
+  return html;
+}
+
 // ─── HTML primitives ──────────────────────────────────────────────────────────
 
 const BULLET_ITEM = (content) =>
@@ -384,7 +415,7 @@ function renderEducation(entries) {
 
 // ─── STEP 6: Assemble the full HTML document ──────────────────────────────────
 
-export function generateResumeHTML(resumeText, profileLocation = "") {
+export function generateResumeHTML(resumeText, profileLocation = "", boldPhrases = []) {
   const sections = splitSections(resumeText);
 
   // Header
@@ -408,21 +439,25 @@ export function generateResumeHTML(resumeText, profileLocation = "") {
     return (idx > 0 ? `<span style="color:#AAA;margin:0 5px;">|</span>` : "") + content;
   }).join("");
 
-  // Section bodies
+  // Section bodies — renderers produce plain escaped HTML; phrase highlighting
+  // is applied in a single pass over the fully assembled body below so that
+  // each phrase is bolded only on its first occurrence across the entire document.
   const summaryHTML      = renderSummary(sections.summary);
   const competenciesHTML = renderBulletSection(sections.competencies);
   const experienceHTML   = renderExperience(parseExperience(sections.experience));
   const educationHTML    = renderEducation(parseEducation(sections.education));
   const skillsHTML       = renderBulletSection(sections.skills);
 
-  // Assemble body in order: summary → competencies → experience → education → skills
-  const body = [
+  // Assemble body, then apply phrase highlights in one pass over the full HTML
+  const rawBody = [
     summaryHTML.trim()      && SECTION_BLOCK(sections.summaryTitle,      summaryHTML),
     competenciesHTML.trim() && SECTION_BLOCK(sections.competenciesTitle,  competenciesHTML),
     experienceHTML.trim()   && SECTION_BLOCK(sections.experienceTitle,    experienceHTML),
     educationHTML.trim()    && SECTION_BLOCK(sections.educationTitle,     educationHTML),
     skillsHTML.trim()       && SECTION_BLOCK(sections.skillsTitle,        skillsHTML),
   ].filter(Boolean).join("");
+
+  const body = highlightPhrases(rawBody, boldPhrases);
 
   return `<!DOCTYPE html>
 <html lang="en">

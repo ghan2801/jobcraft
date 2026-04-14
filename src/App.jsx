@@ -365,6 +365,7 @@ function JobCraft({ session, onLogout, onShowHistory, onShowProfile }) {
   const [reviewableChanges, setReviewableChanges] = useState([]);
   const [acceptedChanges, setAcceptedChanges] = useState(new Set());
   const [isReviewMode, setIsReviewMode] = useState(false);
+  const [boldPhrases, setBoldPhrases] = useState([]);
   const [coverLetter,        setCoverLetter]        = useState("");
   const [coverLetterLoading, setCoverLetterLoading] = useState(false);
   const [coverLetterError,   setCoverLetterError]   = useState("");
@@ -549,7 +550,8 @@ JSON format:
       "risk_level": "safe/moderate/risky",
       "risk_reason": "explanation only if moderate or risky, else empty string"
     }
-  ]
+  ],
+  "bold_phrases": ["exact phrase from resume to bold"]
 }
 
 Where:
@@ -560,6 +562,7 @@ Where:
 - change_summary = detailed breakdown of every meaningful change made
 - gap_report = keyword gap analysis comparing resume against JD requirements
 - reviewable_changes = list of 5-12 individual changes the user can accept/reject, each with ats_impact (how many ATS points that change contributes)
+- bold_phrases = maximum 6 phrases from the tailored resume that are the most impressive and impactful moments; each phrase must appear EXACTLY ONCE in the resume (no repeated bolding); pick specific numbers/achievements (e.g. "reduced manual effort by 40%"), scale indicators (e.g. "150+ dashboards"), unique high-value skills specific to this JD (e.g. "DORA metrics framework"), or exact tools that match the JD (e.g. "AWS Redshift"); do NOT pick generic phrases like "data-driven" or "stakeholder management"; return the exact text as it appears in the tailored resume
 
 Rules:
 - Keep the same structure and format as the original resume
@@ -589,6 +592,7 @@ ${jd}`
       const rc = parsed.reviewable_changes || [];
       setReviewableChanges(rc);
       setAcceptedChanges(new Set(rc.map(c => c.id)));
+      setBoldPhrases(parsed.bold_phrases || []);
       setStep(2);
       // Save immediately using parsed values — state setters above are async
       saveApplication({
@@ -824,6 +828,7 @@ Return ONLY the cover letter text. No JSON. No explanation. Just the letter.`,
             setReviewableChanges([]);
             setAcceptedChanges(new Set());
             setIsReviewMode(false);
+            setBoldPhrases([]);
             setError("");
             setCoverLetter("");
             setCoverLetterLoading(false);
@@ -1047,7 +1052,7 @@ Return ONLY the cover letter text. No JSON. No explanation. Just the letter.`,
               <button
                 className="btn-primary"
                 onClick={() => {
-                  const html = generateResumeHTML(tailored, profileLocation);
+                  const html = generateResumeHTML(tailored, profileLocation, boldPhrases);
                   const tab = window.open("", "_blank");
                   tab.document.write(html);
                   tab.document.close();
@@ -1185,7 +1190,7 @@ Return ONLY the cover letter text. No JSON. No explanation. Just the letter.`,
           </div>
         )}
 
-        <p style={{ textAlign: "center", fontSize: 11, color: theme.textFaint, marginTop: 48, fontFamily: "'DM Mono', monospace" }}>Mission HIRED 🔥 · Built by Ghanshyam · Powered by Claude</p>
+        <p style={{ textAlign: "center", fontSize: 11, color: theme.textFaint, marginTop: 48, fontFamily: "'DM Mono', monospace" }}>© 2026 JobCraft AI · All rights reserved</p>
       </div>
     </div>
   );
