@@ -341,6 +341,64 @@ function StepIndicator({ current }) {
   );
 }
 
+const RESUME_TEMPLATES = [
+  {
+    key: "classic",
+    label: "Classic",
+    preview: (
+      <div style={{ background: "#fff", width: "100%", height: "100%", padding: "8px 6px", display: "flex", flexDirection: "column", gap: 3 }}>
+        <div style={{ width: "65%", height: 6, background: "#222", borderRadius: 2 }} />
+        <div style={{ width: "48%", height: 4, background: "#777", borderRadius: 2 }} />
+        <div style={{ width: "100%", height: 1, background: "#ccc", margin: "3px 0" }} />
+        {[90, 80, 85, 70, 88, 75].map((w, i) => (
+          <div key={i} style={{ width: `${w}%`, height: 3, background: "#bbb", borderRadius: 1 }} />
+        ))}
+      </div>
+    ),
+  },
+  {
+    key: "modern",
+    label: "Modern",
+    preview: (
+      <div style={{ background: "#fff", width: "100%", height: "100%", display: "flex" }}>
+        <div style={{ width: 22, background: "#1a1a2e", flexShrink: 0, padding: "8px 4px", display: "flex", flexDirection: "column", gap: 3 }}>
+          <div style={{ width: "90%", height: 5, background: "#00E5A0", borderRadius: 1 }} />
+          <div style={{ width: "80%", height: 3, background: "#444", borderRadius: 1 }} />
+          <div style={{ width: "80%", height: 3, background: "#444", borderRadius: 1 }} />
+          <div style={{ marginTop: 4, width: "70%", height: 2, background: "#00E5A0", borderRadius: 1 }} />
+          {[1, 2, 3].map(i => <div key={i} style={{ width: "80%", height: 2, background: "#333", borderRadius: 1 }} />)}
+        </div>
+        <div style={{ flex: 1, padding: "8px 5px", display: "flex", flexDirection: "column", gap: 3 }}>
+          {[90, 80, 70, 85, 75, 80].map((w, i) => (
+            <div key={i} style={{ width: `${w}%`, height: 3, background: "#ddd", borderRadius: 1 }} />
+          ))}
+        </div>
+      </div>
+    ),
+  },
+  {
+    key: "executive",
+    label: "Executive",
+    preview: (
+      <div style={{ background: "#fff", width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
+        <div style={{ background: "#1E293B", padding: "8px 6px", flexShrink: 0 }}>
+          <div style={{ width: "70%", height: 5, background: "#fff", borderRadius: 1, marginBottom: 3 }} />
+          <div style={{ width: "50%", height: 3, background: "#00E5A0", borderRadius: 1 }} />
+        </div>
+        <div style={{ flex: 1, padding: "5px 6px", display: "flex", flexDirection: "column", gap: 3 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 2, marginBottom: 1 }}>
+            <div style={{ width: 2, height: 8, background: "#00E5A0", borderRadius: 1, flexShrink: 0 }} />
+            <div style={{ width: "45%", height: 3, background: "#1E293B", borderRadius: 1 }} />
+          </div>
+          {[90, 80, 85, 70].map((w, i) => (
+            <div key={i} style={{ width: `${w}%`, height: 3, background: "#ddd", borderRadius: 1 }} />
+          ))}
+        </div>
+      </div>
+    ),
+  },
+];
+
 function JobCraft({ session, onLogout, onShowHistory, onShowProfile }) {
   const { theme, isDark, toggleTheme } = useTheme();
   const [step, setStep] = useState(0);
@@ -368,6 +426,7 @@ function JobCraft({ session, onLogout, onShowHistory, onShowProfile }) {
   const [acceptedChanges, setAcceptedChanges] = useState(new Set());
   const [isReviewMode, setIsReviewMode] = useState(false);
   const [boldPhrases, setBoldPhrases] = useState([]);
+  const [selectedTemplate, setSelectedTemplate] = useState("classic");
   const [coverLetter,        setCoverLetter]        = useState("");
   const [coverLetterLoading, setCoverLetterLoading] = useState(false);
   const [coverLetterError,   setCoverLetterError]   = useState("");
@@ -480,9 +539,52 @@ We offer competitive salary, equity, and remote-first culture.`;
           max_tokens: 8000,
           messages: [{
             role: "user",
-            content: `You are an expert resume coach and ATS optimization specialist.
+            content: `You are a world-class resume writer and ATS optimization specialist with deep expertise in matching resumes to job descriptions.
 
-TASK: Tailor the resume below to match the job description. Return ONLY a JSON object with no markdown, no backticks, nothing else.
+TASK: Tailor the resume below to match the job description with surgical precision. Return ONLY a JSON object with no markdown, no backticks, nothing else.
+
+CRITICAL RULES:
+
+1. KEYWORD EXTRACTION:
+   Before writing anything, extract ALL specific terms from the JD:
+   - Exact job title words
+   - Specific domain terms (e.g. NBO, DORA, GMV, Lead Scoring)
+   - Specific tools mentioned
+   - Specific frameworks mentioned
+   - KPI names mentioned
+   - Methodology names
+   Use these EXACT terms in the resume. Do not paraphrase them.
+
+2. PROFESSIONAL SUMMARY:
+   - First sentence must mirror JD title exactly
+   - Include 2-3 most critical JD requirements
+   - Mention specific domain/industry from JD
+   - Include one specific metric or achievement
+   - Maximum 4 sentences
+
+3. CORE COMPETENCIES:
+   - Group into 4-6 categories
+   - Category names should mirror JD sections
+   - Each category has 4-6 specific skills
+   - Include ALL specific tools from JD
+   - Include ALL specific frameworks from JD
+   - Include ALL specific KPIs from JD
+
+4. EXPERIENCE BULLETS:
+   - Start each bullet with a bold category label that mirrors a JD Key Result Area (e.g. "Strategy to Execution:" or "Program Management:")
+   - Include specific JD terms naturally
+   - Lead with impact and outcomes
+   - Include numbers where possible
+   - Each bullet 1-2 lines max
+
+5. DO NOT:
+   - Use generic phrases like "results-driven" or "proven track record" alone
+   - Fabricate specific numbers not in the resume
+   - Add skills the candidate clearly does not have
+   - Make bullets longer than 2 lines
+
+6. FORMAT:
+   Keep exact same section order as original. Do not add or remove sections.
 
 JSON format:
 {
@@ -568,12 +670,6 @@ Where:
 - gap_report = keyword gap analysis comparing resume against JD requirements
 - reviewable_changes = list of 5-12 individual changes the user can accept/reject, each with ats_impact (how many ATS points that change contributes)
 - bold_phrases = maximum 6 phrases from the tailored resume that are the most impressive and impactful moments; each phrase must appear EXACTLY ONCE in the resume (no repeated bolding); pick specific numbers/achievements (e.g. "reduced manual effort by 40%"), scale indicators (e.g. "150+ dashboards"), unique high-value skills specific to this JD (e.g. "DORA metrics framework"), or exact tools that match the JD (e.g. "AWS Redshift"); do NOT pick generic phrases like "data-driven" or "stakeholder management"; return the exact text as it appears in the tailored resume
-
-Rules:
-- Keep the same structure and format as the original resume
-- Inject relevant keywords from the JD naturally
-- Do not fabricate experience
-- Improve bullet points to match JD language
 
 ORIGINAL RESUME:
 ${resume}
@@ -1091,7 +1187,8 @@ Return ONLY the cover letter text. No JSON. No explanation. Just the letter.`,
 
         {step === 2 && tailored && (
           <div>
-            <div style={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 24, marginBottom: 20, display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
+            <div style={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 24, marginBottom: 20, display: "flex", flexDirection: "column", gap: 16 }}>
+              {/* Row 1: ATS scores */}
               <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
                 <div>
                   <p style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'DM Mono', monospace", marginBottom: 6, letterSpacing: "0.08em" }}>ATS MATCH SCORE</p>
@@ -1114,18 +1211,39 @@ Return ONLY the cover letter text. No JSON. No explanation. Just the letter.`,
                   <p style={{ fontSize: 16, fontWeight: 700, color: theme.textStrong }}>{atsScore >= 80 ? "🔥 Excellent!" : atsScore >= 60 ? "✅ Good match" : "⚠️ Needs work"}</p>
                 </div>
               </div>
-              <button
-                className="btn-primary"
-                onClick={() => {
-                  const html = generateResumeHTML(tailored, profileLocation, boldPhrases);
-                  const tab = window.open("", "_blank");
-                  tab.document.write(html);
-                  tab.document.close();
-                }}
-                style={{ marginLeft: "auto", background: theme.accent, color: theme.background, border: "none", borderRadius: 10, padding: "12px 22px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}
-              >
-                ⬇ Preview &amp; Download PDF
-              </button>
+
+              {/* Row 2: Template selector + Download button */}
+              <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+                <div>
+                  <p style={{ fontSize: 12, color: theme.textMuted, marginBottom: 8, fontFamily: "'DM Mono', monospace" }}>Choose Resume Template</p>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    {RESUME_TEMPLATES.map(({ key, label, preview }) => (
+                      <div
+                        key={key}
+                        onClick={() => setSelectedTemplate(key)}
+                        style={{ cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}
+                      >
+                        <div style={{ width: 80, height: 100, border: `2px solid ${selectedTemplate === key ? theme.accent : theme.border}`, borderRadius: 8, overflow: "hidden", transition: "border-color 0.15s" }}>
+                          {preview}
+                        </div>
+                        <span style={{ fontSize: 10, color: selectedTemplate === key ? theme.accent : theme.textMuted, fontFamily: "'DM Mono', monospace", fontWeight: selectedTemplate === key ? 700 : 400, letterSpacing: "0.04em" }}>{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <button
+                  className="btn-primary"
+                  onClick={() => {
+                    const html = generateResumeHTML(tailored, profileLocation, boldPhrases, selectedTemplate, jobTitle);
+                    const tab = window.open("", "_blank");
+                    tab.document.write(html);
+                    tab.document.close();
+                  }}
+                  style={{ background: theme.accent, color: theme.background, border: "none", borderRadius: 10, padding: "12px 22px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}
+                >
+                  ⬇ Preview &amp; Download PDF
+                </button>
+              </div>
             </div>
 
             <div style={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 16, overflow: "hidden" }}>

@@ -1,13 +1,14 @@
 // src/ResumeHTML.jsx
-// Converts a plain-text resume into a complete HTML string for browser preview + print-to-PDF.
+// Converts plain-text resume into a complete HTML document for browser preview + print-to-PDF.
+// Supports three templates: 'classic', 'modern', 'executive'
 //
-// Pipeline:
+// Pipeline (shared across templates):
 //   STEP 1  splitSections()   – split raw text into named buckets by section header
 //   STEP 2  parseHeader()     – extract name, title, city/phone/email/linkedin
 //   STEP 3  parseExperience() – state machine: company → role+date → bullets
 //   STEP 4  parseEducation()  – blank-line groups; flush on year/Present
 //   STEP 5  render*()         – each bucket → HTML string
-//   STEP 6  generateResumeHTML() – assemble final HTML document
+//   STEP 6  build*Doc()       – assemble final HTML for chosen template
 
 // ─── HTML escape ──────────────────────────────────────────────────────────────
 
@@ -19,12 +20,18 @@ function esc(str) {
     .replace(/"/g, "&quot;");
 }
 
+// ─── Markdown → HTML cleanup ─────────────────────────────────────────────────
+// Converts **text** patterns (injected by AI) into <strong> tags.
+// Applied to assembled section HTML before phrase highlighting.
+
+const cleanMarkdown = (text) => {
+  if (!text) return '';
+  return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+};
+
 // ─── Bullet helpers ───────────────────────────────────────────────────────────
-// Recognises: ○ ◦ • ‣ ⁃  and ASCII  -  *
 
 function isBulletLine(str) {
-  // U+25CB ○  U+25E6 ◦  U+2022 •  U+2023 ‣  U+2043 ⁃
-  // U+2013 –  U+2014 —  (en/em-dash used as bullet by many AI models)
   return /^[\u2022\u25CB\u25E6\u2023\u2043\u2013\u2014\-*]/.test(str.trim()) ||
     /^\d+[.)]\s/.test(str.trim());
 }
@@ -36,16 +43,11 @@ function stripBullet(str) {
 }
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
-// Matches date ranges at END of a line, e.g.
-//   01/2025–Present   10/2021–12/2024   Jul 2020 – Present
 
 const DATE_RANGE_RE = new RegExp(
   "(" +
-  // MM/YYYY[sep]MM/YYYY or MM/YYYY[sep]Present
   "\\d{1,2}\\/\\d{4}\\s*[\\-\u2013\u2014]\\s*(?:\\d{1,2}\\/\\d{4}|[Pp]resent|[Cc]urrent)" +
-  // plain MM/YYYY
   "|\\d{1,2}\\/\\d{4}" +
-  // Month YYYY[sep]Month YYYY or Month YYYY[sep]Present
   "|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\.?\\s+\\d{4}" +
     "(?:\\s*[\\-\u2013\u2014]\\s*(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\.?\\s+\\d{4}|[Pp]resent|[Cc]urrent))?" +
   ")\\s*$",
@@ -56,8 +58,6 @@ function hasDate(str) {
   return DATE_RANGE_RE.test(str);
 }
 
-// Splits "Sr. Analytics Manager (Consultant) 01/2025–Present"
-// → { role: "Sr. Analytics Manager (Consultant)", date: "01/2025 – Present" }
 function extractRoleDate(line) {
   const m = line.match(DATE_RANGE_RE);
   if (!m) return { role: line.trim(), date: "" };
@@ -84,10 +84,6 @@ function getSectionKey(line) {
   return null;
 }
 
-// Returns { header, summary, summaryTitle, competencies, competenciesTitle,
-//           experience, experienceTitle, education, educationTitle,
-//           skills, skillsTitle }
-// Each value is an array of raw lines (excluding the section header line itself).
 function splitSections(text) {
   const bucket = {
     header:             [],
@@ -103,7 +99,6 @@ function splitSections(text) {
     const key = getSectionKey(raw);
     if (key) {
       current = key;
-      // Preserve the original casing of the section header for display
       bucket[`${key}Title`] = raw.trim().replace(/:$/, "").trim();
     } else {
       bucket[current].push(raw);
@@ -114,7 +109,6 @@ function splitSections(text) {
 
 // ─── STEP 2: Parse header block → name, jobTitle, contact items ───────────────
 
-// Returns true if a line is contact info (not a name/title candidate).
 function isContactOnlyLine(raw) {
   const t = raw.trim().replace(/\s*\|\s*$/, "").trim();
   if (!t) return true;
@@ -134,21 +128,16 @@ function parseHeader(lines) {
     const t = raw.trim().replace(/\s*\|\s*$/, "").trim();
     if (!t) continue;
 
-    // --- Extract contact fields (no early `continue` so same line can yield both phone + email) ---
-
-    // Email
     if (!email) {
       const m = t.match(/[\w.+\-]+@[\w.\-]+\.[a-zA-Z]{2,}/);
       if (m) email = m[0];
     }
 
-    // Phone: international format  +CC[sep]digits
     if (!phone) {
       const m = t.match(/\+\d{1,3}[\s\-]?\d[\d\s\-]{6,}/);
       if (m) phone = m[0].trim().replace(/\s+/g, " ");
     }
 
-    // LinkedIn: full URL or "LINKEDIN-IN username"
     if (!linkedin) {
       if (/LINKEDIN/i.test(t) || /linkedin\.com/i.test(t)) {
         const urlM = t.match(/linkedin\.com\/in\/[\w\-]+/i);
@@ -163,13 +152,10 @@ function parseHeader(lines) {
       }
     }
 
-    // City: "City, Country" or "City, State"
-    // Allow optional trailing punctuation and extra words (e.g. "Pune, India.")
     if (!city && /^[A-Za-z][A-Za-z\s]+,\s*[A-Za-z][A-Za-z\s,\.]+$/.test(t)) {
-      city = t.replace(/[.,]+$/, "").trim(); // strip trailing punctuation
+      city = t.replace(/[.,]+$/, "").trim();
     }
 
-    // --- Name / jobTitle: first two non-contact lines ---
     if (!isContactOnlyLine(raw)) {
       if (!name)     { name = t;     continue; }
       if (!jobTitle) { jobTitle = t; }
@@ -184,14 +170,6 @@ function parseHeader(lines) {
 }
 
 // ─── STEP 3: Parse experience lines into structured entries ───────────────────
-//
-// State machine rules (processing one line at a time, blanks skipped):
-//   • Bullet line          → append to currentEntry.bullets
-//   • Line WITH date       → role+date line; use pendingCompany as company name;
-//                            open a fresh currentEntry
-//   • Non-bullet, no date  → company/org name; save as pendingCompany and reset
-//                            currentEntry so upcoming bullets don't attach to
-//                            the previous company
 
 function parseExperience(lines) {
   const entries = [];
@@ -203,25 +181,20 @@ function parseExperience(lines) {
     if (!trimmed) continue;
 
     if (isBulletLine(trimmed)) {
-      // Attach bullet to current entry; create one if we somehow have none
       if (!currentEntry) {
         currentEntry = { company: pendingCompany, role: "", date: "", bullets: [] };
         entries.push(currentEntry);
         pendingCompany = "";
       }
       currentEntry.bullets.push(stripBullet(trimmed));
-
     } else if (hasDate(trimmed)) {
-      // Role + date line: opens a new entry
       const { role, date } = extractRoleDate(trimmed);
       currentEntry = { company: pendingCompany, role, date, bullets: [] };
       entries.push(currentEntry);
       pendingCompany = "";
-
     } else {
-      // Company / org name — hold it until we see the role+date line
       pendingCompany = trimmed;
-      currentEntry   = null; // detach so bullets don't leak to previous entry
+      currentEntry   = null;
     }
   }
 
@@ -229,24 +202,13 @@ function parseExperience(lines) {
 }
 
 // ─── STEP 4: Parse education lines into entry groups ──────────────────────────
-//
-// Each entry is a blank-line-delimited group of 1–3 lines:
-//   Line 0: University name + optional location
-//   Line 1: Degree + date range
-//   Line 2+: extra info (rare)
-//
-// We also flush on a year/Present-bearing line so entries without blank-line
-// separation still come out as distinct rows.
 
 function parseEducation(lines) {
   const entries = [];
   let group = [];
 
   const flush = () => {
-    if (group.length) {
-      entries.push([...group]);
-      group = [];
-    }
+    if (group.length) { entries.push([...group]); group = []; }
   };
 
   for (const raw of lines) {
@@ -255,16 +217,11 @@ function parseEducation(lines) {
       flush();
     } else {
       group.push(trimmed);
-      if (/\b(19|20)\d{2}\b/.test(trimmed) || /\b[Pp]resent\b/.test(trimmed)) {
-        flush(); // year-bearing line ends this entry
-      }
+      if (/\b(19|20)\d{2}\b/.test(trimmed) || /\b[Pp]resent\b/.test(trimmed)) flush();
     }
   }
   flush();
 
-  // Sort most-recent first.
-  // "Present" / "In Progress" → 9999 so it always sorts to the top.
-  // Otherwise take the largest 4-digit year found anywhere in the entry.
   const entryYear = (g) => {
     const text = g.join(" ");
     if (/\b(present|in progress)\b/i.test(text)) return 9999;
@@ -277,28 +234,20 @@ function parseEducation(lines) {
 }
 
 // ─── Phrase highlighter ───────────────────────────────────────────────────────
-//
-// Applied once to the fully-assembled body HTML (not per-section).
-// For each phrase it finds and bolds only the FIRST occurrence in the entire
-// document, skipping any text inside HTML tags so attributes are never touched.
-// Longest phrases are processed first so "reduced effort by 40%" matches before
-// a shorter sub-phrase like "40%".
 
 function highlightPhrases(html, phrases) {
   if (!phrases || phrases.length === 0) return html;
   const sorted = [...phrases].sort((a, b) => b.length - a.length);
   for (const phrase of sorted) {
     if (!phrase.trim()) continue;
-    // Match the phrase against already-HTML-escaped content
     const escapedPhrase = esc(phrase);
     const rePattern = escapedPhrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    // Alternation: either an HTML tag (leave intact) or the phrase (bold once)
     let done = false;
     html = html.replace(
       new RegExp(`(<[^>]*>)|${rePattern}`, "g"),
       (match, tag) => {
-        if (tag !== undefined) return tag;   // it's an HTML tag — pass through
-        if (done) return match;              // already bolded — leave subsequent copies plain
+        if (tag !== undefined) return tag;
+        if (done) return match;
         done = true;
         return `<strong style="font-weight:700;">${match}</strong>`;
       }
@@ -307,35 +256,38 @@ function highlightPhrases(html, phrases) {
   return html;
 }
 
-// ─── HTML primitives ──────────────────────────────────────────────────────────
+// ─── Print instructions banner (shared) ──────────────────────────────────────
 
-const BULLET_ITEM = (content) =>
-  `<div style="display:flex;gap:6px;margin-bottom:3px;padding-left:8px;">` +
-  `<span style="font-size:10px;line-height:1.4;flex-shrink:0;">\u2022</span>` +
-  `<span style="font-size:10px;line-height:1.4;">${content}</span>` +
-  `</div>`;
+const PRINT_BANNER = `<div class="print-banner" style="background:#EBF5FF;border:1px solid #3B82F6;border-radius:6px;padding:12px 20px;font-family:Arial,sans-serif;font-size:13px;color:#1E40AF;margin:16px auto;max-width:750px;">
+  <div style="font-weight:bold;margin-bottom:6px;">&#128196; To download as PDF (Chrome recommended):</div>
+  <ol style="margin:0;padding-left:20px;line-height:1.8;">
+    <li>Press <strong>Cmd+P</strong> (Mac) or <strong>Ctrl+P</strong> (Windows)</li>
+    <li>Set <strong>Destination</strong> &rarr; <strong>Save as PDF</strong></li>
+    <li>Click <strong>More Settings</strong></li>
+    <li>Turn <strong>OFF</strong> &ldquo;Headers and Footers&rdquo; &larr; <em>important</em></li>
+    <li>Set <strong>Margins</strong> &rarr; <strong>None</strong></li>
+    <li>Click <strong>Save</strong></li>
+  </ol>
+</div>`;
 
-const SECTION_BLOCK = (title, innerHTML) =>
-  `<div style="margin-top:16px;">` +
-  `<div style="font-size:11px;font-weight:bold;text-transform:uppercase;color:#000;` +
-  `border-bottom:1px solid #333;padding-bottom:2px;margin-bottom:6px;letter-spacing:0.05em;">` +
-  `${esc(title)}</div>` +
-  innerHTML +
-  `</div>`;
+// ─── Shared content renderers ─────────────────────────────────────────────────
 
-// ─── STEP 5: Section renderers ────────────────────────────────────────────────
-
-function renderSummary(lines) {
+function renderSummary(lines, textStyle) {
+  const ts = textStyle || "font-size:10px;line-height:1.5;margin-bottom:4px;";
   return lines.map(raw => {
     const t = raw.trim();
     if (!t) return "";
-    if (isBulletLine(t)) return BULLET_ITEM(esc(stripBullet(t)));
-    return `<div style="font-size:10px;line-height:1.5;margin-bottom:4px;">${esc(t)}</div>`;
+    if (isBulletLine(t)) {
+      return `<div style="display:flex;gap:6px;margin-bottom:3px;padding-left:8px;">` +
+        `<span style="font-size:10px;line-height:1.4;flex-shrink:0;">\u2022</span>` +
+        `<span style="${ts}">${esc(stripBullet(t))}</span></div>`;
+    }
+    return `<div style="${ts}">${esc(t)}</div>`;
   }).join("");
 }
 
-// Bullets with optional bold label before the first colon
-function renderBulletSection(lines) {
+function renderBulletSection(lines, textStyle) {
+  const ts = textStyle || "font-size:10px;line-height:1.4;";
   return lines.map(raw => {
     const t = raw.trim();
     if (!t) return "";
@@ -343,25 +295,33 @@ function renderBulletSection(lines) {
       const text = stripBullet(t);
       const ci = text.indexOf(":");
       if (ci > 0 && ci < 80) {
-        return BULLET_ITEM(
-          `<strong>${esc(text.slice(0, ci + 1))}</strong>${esc(text.slice(ci + 1))}`
-        );
+        return `<div style="display:flex;gap:6px;margin-bottom:3px;padding-left:8px;">` +
+          `<span style="font-size:10px;line-height:1.4;flex-shrink:0;">\u2022</span>` +
+          `<span style="${ts}"><strong>${esc(text.slice(0, ci + 1))}</strong>${esc(text.slice(ci + 1))}</span></div>`;
       }
-      return BULLET_ITEM(esc(text));
+      return `<div style="display:flex;gap:6px;margin-bottom:3px;padding-left:8px;">` +
+        `<span style="font-size:10px;line-height:1.4;flex-shrink:0;">\u2022</span>` +
+        `<span style="${ts}">${esc(text)}</span></div>`;
     }
-    return `<div style="font-size:10px;line-height:1.4;margin-bottom:3px;">${esc(t)}</div>`;
+    return `<div style="${ts};margin-bottom:3px;">${esc(t)}</div>`;
   }).join("");
 }
 
-function renderExperience(entries) {
+// opts: { companyStyle, roleColor, dateColor, bulletColor, textColor }
+function renderExperience(entries, opts = {}) {
+  const companyStyle = opts.companyStyle || "font-size:12px;font-weight:bold;color:#000;margin-bottom:2px;";
+  const roleColor    = opts.roleColor    || "#222";
+  const dateColor    = opts.dateColor    || "#666";
+  const bulletColor  = opts.bulletColor  || "#444";
+  const textColor    = opts.textColor    || "#222";
+
   return entries.map(({ company, role, date, bullets }) => {
-    // Use explicit • glyph in a flex div — more reliable than list-style in print
     const bulletsHTML = bullets.length
       ? `<div style="margin-top:4px;">` +
         bullets.map(b =>
           `<div style="display:flex;margin-bottom:4px;">` +
-          `<span style="margin-right:8px;color:#444;flex-shrink:0;">\u2022</span>` +
-          `<span style="font-size:10px;line-height:1.4;color:#222;">${esc(b)}</span>` +
+          `<span style="margin-right:8px;color:${bulletColor};flex-shrink:0;">\u2022</span>` +
+          `<span style="font-size:10px;line-height:1.4;color:${textColor};">${esc(b)}</span>` +
           `</div>`
         ).join("") +
         `</div>`
@@ -369,13 +329,11 @@ function renderExperience(entries) {
 
     return (
       `<div style="margin-bottom:12px;">` +
-      (company
-        ? `<div style="font-size:12px;font-weight:bold;color:#000;margin-bottom:2px;">${esc(company)}</div>`
-        : "") +
+      (company ? `<div style="${companyStyle}">${esc(company)}</div>` : "") +
       ((role || date)
         ? `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px;">` +
-          `<span style="font-size:10px;font-weight:bold;color:#222;">${esc(role)}</span>` +
-          (date ? `<span style="font-size:10px;color:#666;">${esc(date)}</span>` : "") +
+          `<span style="font-size:10px;font-weight:bold;color:${roleColor};">${esc(role)}</span>` +
+          (date ? `<span style="font-size:10px;color:${dateColor};">${esc(date)}</span>` : "") +
           `</div>`
         : "") +
       bulletsHTML +
@@ -389,45 +347,283 @@ function renderEducation(entries) {
     if (!group.length) return "";
 
     if (group.length === 1) {
-      // Single line: split on | or – if present, else show as-is
       const { role: deg, date } = extractRoleDate(group[0]);
       const display = esc(deg) + (date ? ` <span style="color:#666;">(${esc(date)})</span>` : "");
       return `<div style="font-size:10px;line-height:1.6;margin-bottom:6px;">${display}</div>`;
     }
 
-    // group[0] = university + optional location
-    // group[1] = degree + date range
-    // Format: "Degree — University (Date)"
     const university = group[0];
     const { role: degree, date } = extractRoleDate(group[1]);
-    // Any extra lines (group[2+]) are silently appended to university for completeness
     const uniLabel = [university, ...group.slice(2)].join(", ");
 
     return (
       `<div style="font-size:10px;line-height:1.6;margin-bottom:6px;">` +
       `<strong>${esc(degree)}</strong>` +
-      (uniLabel ? ` \u2014 ${esc(uniLabel)}` : "") +       // — University
+      (uniLabel ? ` \u2014 ${esc(uniLabel)}` : "") +
       (date ? ` <span style="color:#666;">(${esc(date)})</span>` : "") +
       `</div>`
     );
   }).join("");
 }
 
-// ─── STEP 6: Assemble the full HTML document ──────────────────────────────────
+// ─── Modern sidebar renderers ─────────────────────────────────────────────────
 
-export function generateResumeHTML(resumeText, profileLocation = "", boldPhrases = []) {
+// Extracts individual skill tokens and renders as accent-colour pills
+function renderSidebarSkills(lines) {
+  const skills = [];
+  for (const raw of lines) {
+    const t = raw.trim();
+    if (!t) continue;
+    const text = isBulletLine(t) ? stripBullet(t) : t;
+    text.split(/[,\u2022]+/).forEach(s => {
+      const skill = s.trim();
+      if (skill) skills.push(skill);
+    });
+  }
+  return skills.map(s =>
+    `<span style="display:inline-block;background:rgba(0,229,160,0.12);color:#00E5A0;` +
+    `border:1px solid rgba(0,229,160,0.25);border-radius:3px;padding:2px 5px;` +
+    `font-size:8px;margin:1px;font-family:Arial,sans-serif;">${esc(s)}</span>`
+  ).join("");
+}
+
+// Renders competencies/other sidebar lists as small light-gray items
+function renderSidebarList(lines) {
+  return lines.map(raw => {
+    const t = raw.trim();
+    if (!t) return "";
+    const text = isBulletLine(t) ? stripBullet(t) : t;
+    return `<div style="font-size:9px;color:#aaa;line-height:1.7;font-family:Arial,sans-serif;">${esc(text)}</div>`;
+  }).filter(Boolean).join("");
+}
+
+// ─── Template: CLASSIC ────────────────────────────────────────────────────────
+
+function buildClassicDoc({ name, jobTitle, inlineContactHTML, sections, parsedExperience, parsedEducation, boldPhrases, fileTitle }) {
+
+  const sectionBlock = (title, innerHTML) =>
+    `<div style="margin-top:14px;">` +
+    `<div style="font-size:11px;font-weight:bold;text-transform:uppercase;color:#000;` +
+    `font-family:Georgia,serif;border-bottom:1.5px solid #333;padding-bottom:3px;` +
+    `margin-bottom:8px;letter-spacing:0.06em;">${esc(title)}</div>` +
+    innerHTML +
+    `</div>`;
+
+  const summaryHTML      = renderSummary(sections.summary);
+  const competenciesHTML = renderBulletSection(sections.competencies);
+  const experienceHTML   = renderExperience(parsedExperience);
+  const educationHTML    = renderEducation(parsedEducation);
+  const skillsHTML       = renderBulletSection(sections.skills);
+
+  const rawBody = [
+    summaryHTML.trim()      && sectionBlock(sections.summaryTitle,      summaryHTML),
+    competenciesHTML.trim() && sectionBlock(sections.competenciesTitle,  competenciesHTML),
+    experienceHTML.trim()   && sectionBlock(sections.experienceTitle,    experienceHTML),
+    educationHTML.trim()    && sectionBlock(sections.educationTitle,     educationHTML),
+    skillsHTML.trim()       && sectionBlock(sections.skillsTitle,        skillsHTML),
+  ].filter(Boolean).join("");
+
+  const body = highlightPhrases(cleanMarkdown(rawBody), boldPhrases);
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>${esc(fileTitle)}</title>
+  <style>
+    @page { margin: 0.75in; size: A4; }
+    @media print {
+      .print-banner { display: none !important; }
+      @page { margin: 0.75in; }
+      .resume-content { padding: 0 !important; }
+      body { -webkit-print-color-adjust: exact; }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #fff; color: #000; font-family: Arial, sans-serif; }
+  </style>
+</head>
+<body>
+  ${PRINT_BANNER}
+  <div class="resume-content" style="max-width:750px;margin:0 auto;padding:0.6in;">
+    ${name     ? `<div style="font-family:Georgia,serif;font-size:22px;font-weight:bold;color:#000;margin-bottom:4px;">${esc(name)}</div>` : ""}
+    ${jobTitle ? `<div style="font-family:Arial,sans-serif;font-size:14px;color:#444;margin-bottom:6px;">${esc(jobTitle)}</div>` : ""}
+    ${inlineContactHTML ? `<div style="font-size:11px;color:#666;font-family:Arial,sans-serif;margin-bottom:14px;">${inlineContactHTML}</div>` : ""}
+    <hr style="border:none;border-top:1.5px solid #CCC;margin-bottom:0;" />
+    ${body}
+  </div>
+</body>
+</html>`;
+}
+
+// ─── Template: MODERN ────────────────────────────────────────────────────────
+
+function buildModernDoc({ name, jobTitle, contactParts, sections, parsedExperience, parsedEducation, boldPhrases, fileTitle }) {
+
+  const sidebarSection = (title, innerHTML) =>
+    `<div style="margin-top:14px;border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;">` +
+    `<div style="font-size:8px;font-weight:700;text-transform:uppercase;color:#00E5A0;` +
+    `letter-spacing:0.1em;margin-bottom:6px;">${esc(title)}</div>` +
+    innerHTML +
+    `</div>`;
+
+  const mainSection = (title, innerHTML) =>
+    `<div style="margin-top:14px;">` +
+    `<div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#00E5A0;` +
+    `letter-spacing:0.1em;margin-bottom:6px;">${esc(title)}</div>` +
+    innerHTML +
+    `</div>`;
+
+  const skillsContent       = renderSidebarSkills(sections.skills);
+  const competenciesContent = renderSidebarList(sections.competencies);
+
+  const sidebarHTML =
+    (name     ? `<div style="font-size:16px;font-weight:bold;color:#fff;font-family:Arial,sans-serif;line-height:1.3;margin-bottom:3px;">${esc(name)}</div>` : "") +
+    (jobTitle ? `<div style="font-size:10px;color:#00E5A0;font-family:Arial,sans-serif;margin-bottom:10px;">${esc(jobTitle)}</div>` : "") +
+    (contactParts.length
+      ? `<div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;">` +
+        contactParts.map(p =>
+          `<div style="font-size:9px;color:#aaa;line-height:1.8;font-family:Arial,sans-serif;word-break:break-all;">${esc(p)}</div>`
+        ).join("") +
+        `</div>`
+      : "") +
+    (skillsContent       ? sidebarSection(sections.skillsTitle,        skillsContent)       : "") +
+    (competenciesContent.trim() ? sidebarSection(sections.competenciesTitle, competenciesContent) : "");
+
+  const summaryHTML    = renderSummary(sections.summary,   "font-size:10px;line-height:1.5;margin-bottom:4px;color:#333;");
+  const experienceHTML = renderExperience(parsedExperience, {
+    companyStyle: "font-size:11px;font-weight:bold;color:#111;margin-bottom:2px;",
+    roleColor:    "#00E5A0",
+    dateColor:    "#888",
+    bulletColor:  "#666",
+    textColor:    "#333",
+  });
+  const educationHTML  = renderEducation(parsedEducation);
+
+  const rawMainBody = [
+    summaryHTML.trim()    && mainSection(sections.summaryTitle,    summaryHTML),
+    experienceHTML.trim() && mainSection(sections.experienceTitle, experienceHTML),
+    educationHTML.trim()  && mainSection(sections.educationTitle,  educationHTML),
+  ].filter(Boolean).join("");
+
+  const mainBody = highlightPhrases(cleanMarkdown(rawMainBody), boldPhrases);
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>${esc(fileTitle)}</title>
+  <style>
+    @page { margin: 0.3in; size: A4; }
+    @media print {
+      .print-banner { display: none !important; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #fff; color: #000; font-family: Arial, sans-serif; }
+  </style>
+</head>
+<body>
+  ${PRINT_BANNER}
+  <table style="width:100%;max-width:780px;margin:0 auto;border-collapse:collapse;table-layout:fixed;">
+    <colgroup>
+      <col style="width:200px;" />
+      <col />
+    </colgroup>
+    <tr>
+      <td style="background:#1a1a2e;vertical-align:top;padding:24px 14px;word-break:break-word;">
+        ${sidebarHTML}
+      </td>
+      <td style="background:#fff;vertical-align:top;padding:24px 22px;">
+        ${mainBody}
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+// ─── Template: EXECUTIVE ─────────────────────────────────────────────────────
+
+function buildExecutiveDoc({ name, jobTitle, contactParts, sections, parsedExperience, parsedEducation, boldPhrases, fileTitle }) {
+
+  const sectionBlock = (title, innerHTML) =>
+    `<div style="margin-top:16px;">` +
+    `<div style="display:flex;align-items:center;gap:6px;margin-bottom:7px;">` +
+    `<div style="width:3px;height:14px;background:#00E5A0;border-radius:1px;flex-shrink:0;"></div>` +
+    `<span style="font-size:10px;font-weight:700;text-transform:uppercase;color:#1E293B;letter-spacing:0.07em;">${esc(title)}</span>` +
+    `</div>` +
+    innerHTML +
+    `</div>`;
+
+  const contactLine = contactParts.join("  \u00B7  ");
+
+  const summaryHTML      = renderSummary(sections.summary,    "font-size:10px;line-height:1.55;margin-bottom:4px;color:#374151;");
+  const competenciesHTML = renderBulletSection(sections.competencies, "font-size:10px;line-height:1.4;color:#374151;");
+  const experienceHTML   = renderExperience(parsedExperience, {
+    companyStyle: "font-size:12px;font-weight:bold;color:#0F172A;margin-bottom:2px;",
+    roleColor:    "#00E5A0",
+    dateColor:    "#64748b",
+    bulletColor:  "#475569",
+    textColor:    "#374151",
+  });
+  const educationHTML    = renderEducation(parsedEducation);
+  const skillsHTML       = renderBulletSection(sections.skills, "font-size:10px;line-height:1.4;color:#374151;");
+
+  const rawBody = [
+    summaryHTML.trim()      && sectionBlock(sections.summaryTitle,      summaryHTML),
+    competenciesHTML.trim() && sectionBlock(sections.competenciesTitle,  competenciesHTML),
+    experienceHTML.trim()   && sectionBlock(sections.experienceTitle,    experienceHTML),
+    educationHTML.trim()    && sectionBlock(sections.educationTitle,     educationHTML),
+    skillsHTML.trim()       && sectionBlock(sections.skillsTitle,        skillsHTML),
+  ].filter(Boolean).join("");
+
+  const body = highlightPhrases(cleanMarkdown(rawBody), boldPhrases);
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>${esc(fileTitle)}</title>
+  <style>
+    @page { margin: 0; size: A4; }
+    @media print {
+      .print-banner { display: none !important; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #fff; color: #000; font-family: Arial, sans-serif; }
+  </style>
+</head>
+<body>
+  ${PRINT_BANNER}
+  <div style="background:#1E293B;padding:28px 0.75in;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+    ${name     ? `<div style="font-size:24px;font-weight:bold;color:#fff;font-family:Arial,sans-serif;margin-bottom:5px;">${esc(name)}</div>` : ""}
+    ${jobTitle ? `<div style="font-size:14px;color:#00E5A0;font-family:Arial,sans-serif;margin-bottom:8px;">${esc(jobTitle)}</div>` : ""}
+    ${contactLine ? `<div style="font-size:11px;color:#94a3b8;font-family:Arial,sans-serif;">${esc(contactLine)}</div>` : ""}
+  </div>
+  <div style="padding:0.3in 0.75in 0.5in;">
+    ${body}
+  </div>
+</body>
+</html>`;
+}
+
+// ─── Public API ───────────────────────────────────────────────────────────────
+
+export function generateResumeHTML(resumeText, profileLocation = "", boldPhrases = [], template = "classic", jobTitleOverride = "") {
   const sections = splitSections(resumeText);
 
-  // Header
-  const { name, jobTitle, contactParts: rawContactParts } = parseHeader(sections.header);
+  // Parse header
+  const { name, jobTitle: parsedJobTitle, contactParts: rawContactParts } = parseHeader(sections.header);
 
-  // If profileLocation is provided, use it as the city (replacing any auto-detected city)
+  // Apply profileLocation override for city
   const cityRegex = /^[A-Za-z][A-Za-z\s]+,\s*[A-Za-z]/;
   const contactParts = profileLocation
     ? [profileLocation, ...rawContactParts.filter(p => !cityRegex.test(p))]
     : rawContactParts;
 
-  const contactHTML = contactParts.map((item, idx) => {
+  // Inline contact HTML (for Classic — with | separators and LinkedIn hyperlinks)
+  const inlineContactHTML = contactParts.map((item, idx) => {
     const trimmed = item.trim();
     const isLinkedIn = /linkedin\.com/i.test(trimmed);
     const href = isLinkedIn
@@ -439,63 +635,20 @@ export function generateResumeHTML(resumeText, profileLocation = "", boldPhrases
     return (idx > 0 ? `<span style="color:#AAA;margin:0 5px;">|</span>` : "") + content;
   }).join("");
 
-  // Section bodies — renderers produce plain escaped HTML; phrase highlighting
-  // is applied in a single pass over the fully assembled body below so that
-  // each phrase is bolded only on its first occurrence across the entire document.
-  const summaryHTML      = renderSummary(sections.summary);
-  const competenciesHTML = renderBulletSection(sections.competencies);
-  const experienceHTML   = renderExperience(parseExperience(sections.experience));
-  const educationHTML    = renderEducation(parseEducation(sections.education));
-  const skillsHTML       = renderBulletSection(sections.skills);
+  // Pre-parse experience + education (shared across all templates)
+  const parsedExperience = parseExperience(sections.experience);
+  const parsedEducation  = parseEducation(sections.education);
 
-  // Assemble body, then apply phrase highlights in one pass over the full HTML
-  const rawBody = [
-    summaryHTML.trim()      && SECTION_BLOCK(sections.summaryTitle,      summaryHTML),
-    competenciesHTML.trim() && SECTION_BLOCK(sections.competenciesTitle,  competenciesHTML),
-    experienceHTML.trim()   && SECTION_BLOCK(sections.experienceTitle,    experienceHTML),
-    educationHTML.trim()    && SECTION_BLOCK(sections.educationTitle,     educationHTML),
-    skillsHTML.trim()       && SECTION_BLOCK(sections.skillsTitle,        skillsHTML),
-  ].filter(Boolean).join("");
+  // Build the file title used as the <title> tag (determines PDF filename in browser)
+  const jobTitle    = parsedJobTitle;
+  const titleSlug   = (jobTitleOverride || jobTitle).replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_]/g, "");
+  const nameSlug    = name.replace(/\s+/g, "");
+  const tplLabel    = template.charAt(0).toUpperCase() + template.slice(1);
+  const fileTitle   = [nameSlug, titleSlug, tplLabel].filter(Boolean).join("_") || "Resume";
 
-  const body = highlightPhrases(rawBody, boldPhrases);
+  const args = { name, jobTitle, inlineContactHTML, contactParts, sections, parsedExperience, parsedEducation, boldPhrases, fileTitle };
 
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${esc(name)} \u2013 Resume</title>
-  <style>
-    @page { margin: 0.55in; size: A4; }
-    @media print {
-      .print-banner { display: none !important; }
-      @page { margin: 0.55in; }
-      .resume-content { padding: 0 !important; }
-      body { -webkit-print-color-adjust: exact; }
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #fff; color: #000; font-family: Arial, sans-serif; }
-  </style>
-</head>
-<body>
-  <div class="print-banner" style="background:#EBF5FF;border:1px solid #3B82F6;border-radius:6px;padding:12px 20px;font-family:Arial,sans-serif;font-size:13px;color:#1E40AF;margin:16px auto;max-width:750px;">
-    <div style="font-weight:bold;margin-bottom:6px;">&#128196; To download as PDF (Chrome recommended):</div>
-    <ol style="margin:0;padding-left:20px;line-height:1.8;">
-      <li>Press <strong>Cmd+P</strong> (Mac) or <strong>Ctrl+P</strong> (Windows)</li>
-      <li>Set <strong>Destination</strong> &rarr; <strong>Save as PDF</strong></li>
-      <li>Click <strong>More Settings</strong></li>
-      <li>Turn <strong>OFF</strong> &ldquo;Headers and Footers&rdquo; &larr; <em>important</em></li>
-      <li>Set <strong>Margins</strong> &rarr; <strong>None</strong></li>
-      <li>Click <strong>Save</strong></li>
-    </ol>
-  </div>
-  <div class="resume-content" style="max-width:750px;margin:0 auto;padding:0.6in;">
-    ${name     ? `<div style="font-family:Georgia,serif;font-size:22px;font-weight:bold;color:#000;margin-bottom:4px;">${esc(name)}</div>` : ""}
-    ${jobTitle ? `<div style="font-family:Arial,sans-serif;font-size:14px;color:#444;margin-bottom:6px;">${esc(jobTitle)}</div>` : ""}
-    ${contactHTML ? `<div style="font-size:11px;color:#666;font-family:Arial,sans-serif;margin-bottom:14px;">${contactHTML}</div>` : ""}
-    <hr style="border:none;border-top:1px solid #CCC;margin-bottom:0;" />
-    ${body}
-  </div>
-</body>
-</html>`;
+  if (template === "modern")    return buildModernDoc(args);
+  if (template === "executive") return buildExecutiveDoc(args);
+  return buildClassicDoc(args);
 }
