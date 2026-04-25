@@ -582,9 +582,34 @@ CRITICAL RULES:
    - Fabricate specific numbers not in the resume
    - Add skills the candidate clearly does not have
    - Make bullets longer than 2 lines
+   - IMPORTANT: Copy company names EXACTLY as they appear in the original resume. Never modify, duplicate, or alter company names. If the original says "Avalara" — write exactly "Avalara", never "AvalaraAvalaraAnalytics" or any other variation.
 
 6. FORMAT:
    Keep exact same section order as original. Do not add or remove sections.
+
+7. RELOCATION DETECTION:
+   Before writing the resume, check if the job location in the JD is different from the candidate's location in their resume.
+
+   If the job is in a DIFFERENT country from the candidate:
+   - Add a relocation line in the header BELOW the contact line:
+     "Open to Relocate to [City, Country] | Available Immediately | [Language] Speaker"
+     Example: "Open to Relocate to Amsterdam, Netherlands | Available Immediately | Fluent English Speaker"
+   - Extract the target city/country from the JD
+   - Always add "Available Immediately" unless the resume says otherwise
+   - Add language only if the JD mentions a language requirement
+
+   If the job is in the SAME country as the candidate:
+   - Do not add a relocation line
+   - Keep the header as normal
+
+8. TONE MATCHING:
+   Before writing, analyze the JD tone and mirror it throughout the entire resume:
+   - Formal/corporate JD → use professional corporate language
+   - Consultancy/strategy JD → use strategic, impact-driven language; mention consultancy background if relevant
+   - Startup/tech JD → use dynamic, growth-oriented language
+   - Creative/agency JD → use personality-driven language
+
+   Mirror the JD's exact vocabulary. If the JD says "groundbreaking insights" — use that phrase. If it says "relentless focus on tangible impact" — use that framing. The resume should feel like it was written by someone who deeply understands this company's culture.
 
 JSON format:
 {
