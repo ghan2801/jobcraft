@@ -347,6 +347,8 @@ function JobCraft({ session, onLogout, onShowHistory, onShowProfile }) {
   const [resume, setResume] = useState("");
   const [jd, setJD] = useState("");
   const [tailored, setTailored] = useState("");
+  const [originalTailored, setOriginalTailored] = useState("");
+  const [resumeSaved, setResumeSaved] = useState(false);
   const [atsScore, setAtsScore] = useState(null);
   const [originalAtsScore, setOriginalAtsScore] = useState(null);
   const [jobTitle, setJobTitle] = useState("");
@@ -373,7 +375,10 @@ function JobCraft({ session, onLogout, onShowHistory, onShowProfile }) {
   const [applicationId,      setApplicationId]      = useState(null);
   const [fileProcessing,     setFileProcessing]     = useState(false);
   const [fileError,          setFileError]          = useState("");
+  const [jdFileProcessing,   setJdFileProcessing]   = useState(false);
+  const [jdFileError,        setJdFileError]        = useState("");
   const fileRef = useRef();
+  const jdFileRef = useRef();
 
   useEffect(() => {
     async function loadProfile() {
@@ -583,6 +588,7 @@ ${jd}`
       const clean = text.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(clean);
       setTailored(parsed.tailored_resume);
+      setOriginalTailored(parsed.tailored_resume);
       setAtsScore(parsed.ats_score);
       setOriginalAtsScore(parsed.original_ats_score);
       setJobTitle(parsed.job_title || "");
@@ -698,6 +704,7 @@ ${changesList}`,
       const clean = text.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(clean);
       setTailored(parsed.tailored_resume);
+      setOriginalTailored(parsed.tailored_resume);
       setAtsScore(parsed.ats_score);
       setActiveTab("tailored");
     } catch {
@@ -798,6 +805,44 @@ Return ONLY the cover letter text. No JSON. No explanation. Just the letter.`,
       setFileError("❌ Could not read this file. Please try copy-pasting your resume text.");
     } finally {
       setFileProcessing(false);
+    }
+  };
+
+  const handleJDFile = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = "";
+    setJdFileProcessing(true);
+    setJdFileError("");
+    setJD("");
+    try {
+      const name = file.name.toLowerCase();
+      let text = "";
+      if (name.endsWith(".pdf")) {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const pages = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          pages.push(
+            content.items.map(item => item.str + (item.hasEOL ? "\n" : "")).join("")
+          );
+        }
+        text = pages.join("\n\n");
+      } else if (name.endsWith(".doc") || name.endsWith(".docx")) {
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        text = result.value;
+      } else {
+        text = await file.text();
+      }
+      if (!text.trim()) throw new Error("No text extracted");
+      setJD(text);
+    } catch {
+      setJdFileError("❌ Could not read this file. Please try copy-pasting the job description.");
+    } finally {
+      setJdFileProcessing(false);
     }
   };
 
@@ -1012,6 +1057,26 @@ Return ONLY the cover letter text. No JSON. No explanation. Just the letter.`,
               <h2 style={{ fontSize: 18, fontWeight: 700, color: theme.textStrong }}>Job Description</h2>
             </div>
             <textarea value={jd} onChange={e => setJD(e.target.value)} placeholder="Paste the full job description here…" style={{ width: "100%", minHeight: 260, background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 16, color: theme.text, fontSize: 13, fontFamily: "'DM Mono', monospace", lineHeight: 1.8 }} />
+            <div style={{ marginTop: 12 }}>
+              <input ref={jdFileRef} type="file" accept=".txt,.pdf,.doc,.docx" onChange={handleJDFile} style={{ display: "none" }} />
+              <button
+                className="btn-ghost"
+                onClick={() => jdFileRef.current.click()}
+                disabled={jdFileProcessing}
+                style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "10px 22px", fontSize: 13, cursor: jdFileProcessing ? "not-allowed" : "pointer", opacity: jdFileProcessing ? 0.6 : 1 }}
+              >📁 Upload JD (PDF, DOC or TXT)</button>
+              {jdFileProcessing && (
+                <p style={{ color: theme.textMuted, fontSize: 12, fontFamily: "'DM Mono', monospace", marginTop: 8 }}>📄 Reading your file…</p>
+              )}
+              {jdFileError && !jdFileProcessing && (
+                <p style={{ color: "#FF6B6B", fontSize: 12, fontFamily: "'DM Mono', monospace", marginTop: 8 }}>{jdFileError}</p>
+              )}
+              {jd && !jdFileProcessing && !jdFileError && (
+                <p style={{ color: theme.accent, fontSize: 12, fontFamily: "'DM Mono', monospace", marginTop: 8 }}>
+                  ✅ JD extracted — {jd.length.toLocaleString()} characters
+                </p>
+              )}
+            </div>
             <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
               <button className="btn-ghost" onClick={() => setJD(sampleJD)} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "8px 16px", fontSize: 13, cursor: "pointer" }}>✨ Load sample JD</button>
             </div>
@@ -1085,7 +1150,43 @@ Return ONLY the cover letter text. No JSON. No explanation. Just the letter.`,
                     loading={loading}
                   />
                 )}
-                {activeTab === "tailored" && <pre style={{ color: theme.text, fontSize: 12.5, fontFamily: "'DM Mono', monospace", lineHeight: 1.9, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{tailored}</pre>}
+                {activeTab === "tailored" && (
+                  <div>
+                    <p style={{ fontSize: 12, color: theme.textMuted, marginBottom: 8, fontFamily: "'DM Mono', monospace" }}>
+                      ✏️ You can edit your resume directly here. Changes will reflect in your PDF download.
+                    </p>
+                    <textarea
+                      value={tailored}
+                      onChange={e => setTailored(e.target.value)}
+                      style={{ width: "100%", minHeight: 500, background: theme.background, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 16, color: theme.text, fontSize: 12.5, fontFamily: "'DM Mono', monospace", lineHeight: 1.9, resize: "vertical" }}
+                    />
+                    <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                      <button
+                        onClick={async () => {
+                          if (applicationId) {
+                            await supabase.from("applications").update({ tailored_resume: tailored }).eq("id", applicationId);
+                          }
+                          setResumeSaved(true);
+                          setTimeout(() => setResumeSaved(false), 2000);
+                        }}
+                        style={{ background: theme.accent, color: theme.background, border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif", transition: "all 0.2s" }}
+                      >
+                        {resumeSaved ? "Saved ✓" : "💾 Save Changes"}
+                      </button>
+                      <button
+                        className="btn-ghost"
+                        onClick={() => {
+                          if (window.confirm("Reset to original AI version? Your edits will be lost.")) {
+                            setTailored(originalTailored);
+                          }
+                        }}
+                        style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "9px 18px", fontSize: 13, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}
+                      >
+                        🔄 Reset to AI version
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {activeTab === "cover" && (
                   <div>
