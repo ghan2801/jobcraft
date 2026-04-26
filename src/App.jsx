@@ -1049,19 +1049,37 @@ Return ONLY a JSON object. No markdown. No backticks.
       "tasks": ["actionable task (max 80 chars)", "actionable task (max 80 chars)", "actionable task (max 80 chars)"]
     }
   ],
-  "top_questions": [
-    {
-      "question": "interview question (max 100 chars)",
-      "category": "Behavioral|Technical|Situational|Culture",
-      "answer_guide": "how to answer (max 100 chars)"
-    }
-  ],
+  "question_bank": {
+    "opening": [
+      { "question": "max 100 chars", "answer_guide": "candidate-specific tip (max 120 chars)", "key_points": ["max 70 chars", "max 70 chars"], "difficulty": "easy" }
+    ],
+    "domain": [
+      { "question": "max 100 chars", "answer_guide": "candidate-specific tip (max 120 chars)", "key_points": ["max 70 chars", "max 70 chars"], "difficulty": "medium|hard" }
+    ],
+    "technical": [
+      { "question": "max 100 chars", "answer_guide": "candidate-specific tip (max 120 chars)", "key_points": ["max 70 chars", "max 70 chars"], "difficulty": "medium|hard" }
+    ],
+    "sql_data": [
+      { "question": "max 100 chars", "answer_guide": "candidate-specific tip (max 120 chars)", "key_points": ["max 70 chars", "max 70 chars"], "difficulty": "medium|hard" }
+    ],
+    "leadership_behavioral": [
+      { "question": "max 100 chars", "answer_guide": "candidate-specific tip (max 120 chars)", "key_points": ["max 70 chars", "max 70 chars"], "difficulty": "medium" }
+    ],
+    "vp_strategic": [
+      { "question": "max 100 chars", "answer_guide": "candidate-specific tip (max 120 chars)", "key_points": ["max 70 chars", "max 70 chars"], "difficulty": "hard" }
+    ],
+    "closing": [
+      { "question": "max 100 chars", "answer_guide": "candidate-specific tip (max 120 chars)", "key_points": ["max 70 chars", "max 70 chars"], "difficulty": "easy" }
+    ]
+  },
   "emergency_tips": ["concise tip (max 80 chars)"]
 }
 
 Rules:
 - daily_plan must have exactly ${daysUntilInterview} day entries, max 3 tasks each
-- top_questions: exactly 6 questions most likely for this role and company
+- question_bank sections: opening=3, domain=5, technical=5, sql_data=4, leadership_behavioral=5, vp_strategic=3, closing=2 (total ~27 questions)
+- Each question must be specific to the role and company, not generic
+- key_points: exactly 2 bullet points per question, each max 70 chars
 - readiness_assessment.items: exactly 6 items drawn from the JD requirements
 - emergency_tips: exactly 4 tips
 - Tasks must be specific and actionable
@@ -1682,6 +1700,8 @@ For each gap or neutral item in readiness_assessment, add a note field with:
                     onGenerate={generatePrepPlan}
                     jobTitle={jobTitle}
                     companyName={companyName}
+                    resume={resume}
+                    jd={jd}
                   />
                 )}
 

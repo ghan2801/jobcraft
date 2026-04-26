@@ -320,6 +320,148 @@ function DayCard({ day, isFirst, checked, onCheck }) {
   );
 }
 
+const SECTION_META = {
+  opening:              { label: "Opening",              emoji: "👋" },
+  domain:               { label: "Domain Knowledge",     emoji: "🏦" },
+  technical:            { label: "Technical",            emoji: "⚙️" },
+  sql_data:             { label: "SQL & Data",           emoji: "🗄️" },
+  leadership_behavioral:{ label: "Leadership & Behavioral", emoji: "🤝" },
+  vp_strategic:         { label: "Strategic / VP-Level",emoji: "📈" },
+  closing:              { label: "Closing",              emoji: "🎯" },
+};
+
+const DIFFICULTY_COLORS = {
+  easy:   { bg: "#16a34a20", border: "#16a34a40", text: "#16a34a" },
+  medium: { bg: "#d9770620", border: "#d9770640", text: "#d97706" },
+  hard:   { bg: "#dc262620", border: "#dc262640", text: "#dc2626" },
+};
+
+function DifficultyBadge({ level }) {
+  const c = DIFFICULTY_COLORS[level] || DIFFICULTY_COLORS.medium;
+  return (
+    <span style={{
+      fontSize: 10, background: c.bg, color: c.text, border: `1px solid ${c.border}`,
+      borderRadius: 5, padding: "2px 7px", fontFamily: "'DM Mono', monospace",
+      fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0, textTransform: "uppercase",
+    }}>{level}</span>
+  );
+}
+
+function QuestionBank({ question_bank, practiced, onToggle, theme }) {
+  const [openSections, setOpenSections] = useState(() =>
+    Object.fromEntries(Object.keys(question_bank).map((k, i) => [k, i === 0]))
+  );
+  const totalCount    = Object.values(question_bank).flat().length;
+  const practicedCount = Object.values(practiced).filter(Boolean).length;
+
+  return (
+    <div>
+      {/* Progress header */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        marginBottom: 16, padding: "12px 16px",
+        background: theme.card, border: `1px solid ${theme.border}`,
+        borderRadius: 10,
+      }}>
+        <span style={{ fontSize: 13, fontFamily: "'Syne', sans-serif", fontWeight: 700, color: theme.textStrong }}>
+          💬 Full Interview Question Bank
+        </span>
+        <span style={{ fontSize: 12, fontFamily: "'DM Mono', monospace", color: theme.textMuted }}>
+          Practiced:{" "}
+          <strong style={{ color: practicedCount === totalCount ? "#16a34a" : theme.textStrong }}>
+            {practicedCount} / {totalCount}
+          </strong>
+        </span>
+      </div>
+
+      {/* Sections */}
+      {Object.entries(question_bank).map(([sectionKey, questions]) => {
+        if (!questions || !questions.length) return null;
+        const meta = SECTION_META[sectionKey] || { label: sectionKey, emoji: "❓" };
+        const secPracticed = questions.filter((_, i) => practiced[`${sectionKey}_${i}`]).length;
+        const isOpen = openSections[sectionKey];
+        return (
+          <div key={sectionKey} style={{ marginBottom: 8, border: `1px solid ${theme.border}`, borderRadius: 10, overflow: "hidden" }}>
+            {/* Section header */}
+            <button
+              onClick={() => setOpenSections(prev => ({ ...prev, [sectionKey]: !prev[sectionKey] }))}
+              style={{
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "12px 16px", background: theme.card, border: "none",
+                cursor: "pointer", gap: 10,
+              }}
+            >
+              <span style={{ fontSize: 13, fontWeight: 700, color: theme.textStrong, fontFamily: "'Syne', sans-serif" }}>
+                {meta.emoji} {meta.label}
+              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 11, fontFamily: "'DM Mono', monospace", color: theme.textMuted }}>
+                  {secPracticed}/{questions.length}
+                </span>
+                <span style={{ fontSize: 11, color: theme.textFaint, fontFamily: "'DM Mono', monospace" }}>
+                  {isOpen ? "▲" : "▼"}
+                </span>
+              </div>
+            </button>
+            {/* Questions */}
+            {isOpen && (
+              <div style={{ padding: "0 12px 12px" }}>
+                {questions.map((q, i) => {
+                  const key = `${sectionKey}_${i}`;
+                  const done = !!practiced[key];
+                  return (
+                    <div key={i} style={{
+                      marginTop: 10, padding: "12px 14px",
+                      background: done ? (theme.background + "80") : theme.background,
+                      borderRadius: 8,
+                      border: `1px solid ${theme.border}`,
+                      borderLeft: `3px solid ${done ? "#16a34a" : theme.border}`,
+                      opacity: done ? 0.8 : 1,
+                      transition: "all 0.2s",
+                    }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: done ? theme.textMuted : theme.textStrong, lineHeight: 1.5, fontFamily: "'Syne', sans-serif", margin: 0 }}>
+                          {q.question}
+                        </p>
+                        <DifficultyBadge level={q.difficulty || "medium"} />
+                      </div>
+                      {q.answer_guide && (
+                        <p style={{ fontSize: 12, color: theme.textMuted, lineHeight: 1.6, fontFamily: "'DM Mono', monospace", margin: "0 0 6px" }}>
+                          💡 {q.answer_guide}
+                        </p>
+                      )}
+                      {q.key_points && q.key_points.length > 0 && (
+                        <ul style={{ margin: "0 0 8px", paddingLeft: 16 }}>
+                          {q.key_points.map((pt, pi) => (
+                            <li key={pi} style={{ fontSize: 11, color: theme.textFaint, lineHeight: 1.6, fontFamily: "'DM Mono', monospace" }}>{pt}</li>
+                          ))}
+                        </ul>
+                      )}
+                      <button
+                        onClick={() => onToggle(key)}
+                        style={{
+                          fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer",
+                          fontFamily: "'DM Mono', monospace", fontWeight: 600,
+                          background: done ? "#16a34a20" : "transparent",
+                          color: done ? "#16a34a" : theme.textMuted,
+                          border: `1px solid ${done ? "#16a34a50" : theme.border}`,
+                          transition: "all 0.15s",
+                        }}
+                      >
+                        {done ? "✓ Practiced" : "Mark as Practiced"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function PrepCoach({
   prepPlan,
   prepLoading,
@@ -331,12 +473,67 @@ export default function PrepCoach({
   onGenerate,
   jobTitle,
   companyName,
+  resume,
+  jd,
 }) {
   const { theme, isDark } = useTheme();
-  const [checked, setChecked] = useState({});
+  const [checked,      setChecked]      = useState({});
+  const [practiced,    setPracticed]    = useState({});
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
 
   function toggleCheck(key) {
     setChecked(prev => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function togglePracticed(key) {
+    setPracticed(prev => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function buildCoachingPrompt() {
+    if (!prepPlan) return "";
+    const gaps = (prepPlan.readiness_assessment?.items || [])
+      .filter(item => item.level === "gap" || item.level === "neutral")
+      .map(item => `- ${item.label} (${item.level})${item.note ? ": " + item.note : ""}`)
+      .join("\n");
+    const planSummary = (prepPlan.daily_plan || [])
+      .map(d => `Day ${d.day} — ${d.theme}: ${(d.tasks || []).join("; ")}`)
+      .join("\n");
+    const resumeExcerpt = resume ? resume.slice(0, 500) : "Not provided";
+    const jdExcerpt = jd ? jd.slice(0, 500) : "Not provided";
+    return `You are an expert interview coach. I have an interview coming up and need your help with mock practice.
+
+ROLE: ${jobTitle || "the role"}
+COMPANY: ${companyName || "the company"}
+DAYS UNTIL INTERVIEW: ${daysUntilInterview}
+
+MY RESUME (excerpt):
+${resumeExcerpt}
+
+JOB DESCRIPTION (excerpt):
+${jdExcerpt}
+
+MY SKILL GAPS:
+${gaps || "None identified"}
+
+MY PREP PLAN:
+${planSummary || "Not generated yet"}
+
+INSTRUCTIONS:
+1. Start by asking me one interview question at a time from the question bank above
+2. After I answer, give me specific feedback: what I did well, what to improve, and a model answer
+3. Track my progress and adjust difficulty based on my responses
+4. Focus extra time on my skill gaps
+5. End each session with 3 key takeaways
+
+Let's start — ask me the first question.`;
+  }
+
+  function copyCoachingPrompt() {
+    const prompt = buildCoachingPrompt();
+    navigator.clipboard.writeText(prompt).then(() => {
+      setCopiedPrompt(true);
+      setTimeout(() => setCopiedPrompt(false), 2000);
+    });
   }
 
   // ── Input screen ──────────────────────────────────────────────
@@ -443,7 +640,7 @@ export default function PrepCoach({
     interview_structure,
     readiness_assessment,
     daily_plan,
-    top_questions,
+    question_bank,
     emergency_tips,
   } = prepPlan;
 
@@ -452,7 +649,7 @@ export default function PrepCoach({
   return (
     <div>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
         <div>
           <h3 style={{ fontSize: 17, fontWeight: 800, color: theme.textStrong, marginBottom: 4, fontFamily: "'Syne', sans-serif" }}>
             🎯 Your Interview Prep Plan
@@ -467,6 +664,37 @@ export default function PrepCoach({
           style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "8px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}
         >
           🔄 Regenerate
+        </button>
+      </div>
+
+      {/* Coaching Prompt Banner */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        gap: 12, marginBottom: 20, padding: "14px 18px",
+        background: isDark ? "#0d1f17" : "#f0fdf4",
+        border: `1px solid #16a34a40`, borderRadius: 12,
+        flexWrap: "wrap",
+      }}>
+        <div>
+          <p style={{ fontSize: 13, fontWeight: 700, color: "#16a34a", fontFamily: "'Syne', sans-serif", marginBottom: 2 }}>
+            🧠 Want dynamic coaching?
+          </p>
+          <p style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'DM Mono', monospace", lineHeight: 1.5 }}>
+            Copy a ready-made prompt and paste it into Claude.ai for a live mock interview session.
+          </p>
+        </div>
+        <button
+          onClick={copyCoachingPrompt}
+          style={{
+            background: copiedPrompt ? "#16a34a20" : theme.card,
+            color: copiedPrompt ? "#16a34a" : theme.textStrong,
+            border: `1px solid ${copiedPrompt ? "#16a34a50" : theme.border}`,
+            borderRadius: 8, padding: "9px 16px", fontSize: 12, fontWeight: 700,
+            cursor: "pointer", fontFamily: "'DM Mono', monospace",
+            whiteSpace: "nowrap", transition: "all 0.2s", flexShrink: 0,
+          }}
+        >
+          {copiedPrompt ? "Copied! ✓" : "📋 Copy Coaching Prompt"}
         </button>
       </div>
 
@@ -545,23 +773,14 @@ export default function PrepCoach({
         </Section>
       )}
 
-      {/* 4. Top Interview Questions */}
-      {top_questions && top_questions.length > 0 && (
-        <Section title={`Top ${top_questions.length} Interview Questions`} emoji="💬">
-          {top_questions.map((q, i) => (
-            <div key={i} style={{ marginBottom: 16, paddingBottom: 16, borderBottom: i < top_questions.length - 1 ? `1px solid ${theme.border}` : "none" }}>
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 6 }}>
-                <span style={{ fontSize: 11, background: theme.accent + "20", color: theme.accent, border: `1px solid ${theme.accent}40`, borderRadius: 5, padding: "2px 7px", fontFamily: "'DM Mono', monospace", fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>{q.category || "General"}</span>
-                <p style={{ fontSize: 13, fontWeight: 700, color: theme.textStrong, lineHeight: 1.5, fontFamily: "'Syne', sans-serif" }}>{q.question}</p>
-              </div>
-              {q.answer_guide && (
-                <p style={{ fontSize: 12, color: theme.textMuted, lineHeight: 1.7, fontFamily: "'DM Mono', monospace", paddingLeft: 0 }}>
-                  <strong style={{ color: theme.textStrong }}>How to answer: </strong>{q.answer_guide}
-                </p>
-              )}
-            </div>
-          ))}
-        </Section>
+      {/* 4. Question Bank */}
+      {question_bank && Object.keys(question_bank).length > 0 && (
+        <QuestionBank
+          question_bank={question_bank}
+          practiced={practiced}
+          onToggle={togglePracticed}
+          theme={theme}
+        />
       )}
 
       {/* 5. Emergency Tips — also shown at bottom as a section if > 3 days */}
