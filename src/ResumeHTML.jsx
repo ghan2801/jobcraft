@@ -55,12 +55,18 @@ const sanitizeText = (text) => {
     .trim();
 };
 
-// Cleans company names extracted by the parser: strips trailing punctuation and
-// any non-ASCII characters that the AI may have concatenated.
+// Cleans company names extracted by the parser.
+// Strips non-ASCII noise, embedded date patterns, and trailing role-title words
+// that the AI sometimes merges onto the company line (e.g. "Avalara Lead").
 function cleanCompanyName(str) {
   return str
-    .replace(/[^\x00-\x7F\u2022\u00B7]/g, '') // Remove non-ASCII (Cyrillic м, etc.)
-    .replace(/[\s.|–—\u00B7\u2022]+$/, '')       // Strip trailing: space, period, pipe, dashes, · •
+    .replace(/[^\x00-\x7F\u2022\u00B7]/g, '')   // Remove non-ASCII (Cyrillic, etc.)
+    // Strip any date and everything that follows it (safety net for mis-parsed lines)
+    .replace(/\s*\d{1,2}\/\d{4}.*$/, '')
+    .replace(/\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}.*$/i, '')
+    // Strip trailing role-title words the AI sometimes appends to the company name
+    .replace(/\s+(?:Lead|Manager|Analyst|Engineer|Director|VP|Head|Senior|Sr|Jr|Associate|Consultant|Specialist|Coordinator|Executive|Officer|Developer|Architect|Scientist|Supervisor)$/i, '')
+    .replace(/[\s.|–—\u00B7\u2022]+$/, '')        // Strip trailing: space, period, pipe, dashes
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -545,13 +551,13 @@ function buildClassicDoc({ name, jobTitle, inlineContactHTML, relocationLine, se
     innerHTML +
     `</div>`;
 
-  // Shared Set ensures each phrase is bolded only on its first occurrence
-  // across the document.  hFn is applied per-bullet inside renderExperience
-  // so keywords are guaranteed to be highlighted in bullet text.
+  // used – shared across non-experience sections (deduplicates within summary/skills/etc.)
+  // hFn  – no Set: each bullet highlights all phrases independently so every
+  //         bullet that contains a keyword gets it bolded, not just the first.
   const used = new Set();
   const h    = (html) => highlight(html, boldPhrases, used);
   const hFn  = (escapedText) =>
-    applyPhraseHighlighting(cleanMarkdown(escapedText), boldPhrases, used);
+    applyPhraseHighlighting(cleanMarkdown(escapedText), boldPhrases);
 
   const summaryHTML      = h(renderSummary(sections.summary));
   const competenciesHTML = h(renderCompetenciesTable(sections.competencies));
@@ -636,7 +642,7 @@ function buildModernDoc({ name, jobTitle, contactParts, relocationLine, sections
   const used = new Set();
   const h    = (html) => highlight(html, boldPhrases, used);
   const hFn  = (escapedText) =>
-    applyPhraseHighlighting(cleanMarkdown(escapedText), boldPhrases, used);
+    applyPhraseHighlighting(cleanMarkdown(escapedText), boldPhrases);
 
   const summaryHTML    = h(renderSummary(sections.summary,   "font-size:10px;line-height:1.5;margin-bottom:4px;color:#333;"));
   const experienceHTML = cleanMarkdown(renderExperience(parsedExperience, {
@@ -708,7 +714,7 @@ function buildExecutiveDoc({ name, jobTitle, contactParts, relocationLine, secti
   const used = new Set();
   const h    = (html) => highlight(html, boldPhrases, used);
   const hFn  = (escapedText) =>
-    applyPhraseHighlighting(cleanMarkdown(escapedText), boldPhrases, used);
+    applyPhraseHighlighting(cleanMarkdown(escapedText), boldPhrases);
 
   const summaryHTML      = h(renderSummary(sections.summary,    "font-size:10px;line-height:1.55;margin-bottom:4px;color:#374151;"));
   const competenciesHTML = h(renderCompetenciesTable(sections.competencies, "font-size:9.5px;line-height:1.6;color:#374151;"));
