@@ -39,9 +39,8 @@ const cleanResumeText = (text) => {
   text = text.replace(/AvalaraAvalaraAvalara/gi, 'Avalara');
   text = text.replace(/AvalaraAvalara/gi, 'Avalara');
   text = text.replace(/AvalaraAnalytics/gi, 'Avalara');
-  // Generic fix: remove immediately-adjacent duplicate words (e.g. "AvalaraAvalara").
-  // Require 4+ chars per word so short repeated-syllable names like "Tata" are not mangled.
-  text = text.replace(/\b(\w{4,})\1\b/gi, '$1');
+  // Generic fix: remove immediately-adjacent duplicate words (e.g. "AvalaraAvalara")
+  text = text.replace(/\b(\w+)\1\b/gi, '$1');
   return text;
 };
 
@@ -50,7 +49,7 @@ const cleanResumeText = (text) => {
 const sanitizeText = (text) => {
   if (!text) return '';
   return text
-    .replace(/[^\x00-\x7F\u2022\u00B7\u2013\u2014]/g, '') // Keep ASCII + bullets + en/em-dash
+    .replace(/[^\x00-\x7F\u2022\u00B7]/g, '') // Keep ASCII + bullet • and middle dot ·
     .replace(/\s+/g, ' ')
     .trim();
 };
@@ -60,7 +59,7 @@ const sanitizeText = (text) => {
 function cleanCompanyName(str) {
   return str
     .replace(/[^\x00-\x7F\u2022\u00B7]/g, '') // Remove non-ASCII (Cyrillic м, etc.)
-    .replace(/[\s.|–—\u00B7\u2022]+$/, '')       // Strip trailing: space, period, pipe, dashes, · •
+    .replace(/[\s.|–—]+$/, '')                  // Strip trailing: space, period, pipe, dashes
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -219,59 +218,32 @@ function parseHeader(lines) {
 }
 
 // ─── STEP 3: Parse experience lines into structured entries ───────────────────
-//
-// Two-pass approach:
-//   Pass 1 – lookahead: a line is a "company header" when the very next
-//            non-blank line contains a date.  This correctly captures the
-//            first company even when there is no blank line before it.
-//   Pass 2 – state machine: company → role+date → bullets.
-//            Any non-company, non-date, non-bullet line inside an active
-//            entry is a bullet whose leading character was stripped by
-//            sanitizeText (e.g. ○ or an un-preserved dash).
 
 function parseExperience(lines) {
-  // Pass 1: identify company-header line indices
-  const companyIdx = new Set();
-  for (let i = 0; i < lines.length; i++) {
-    const t = lines[i].trim();
-    if (!t || isBulletLine(t) || hasDate(t)) continue;
-    for (let j = i + 1; j < lines.length; j++) {
-      if (!lines[j].trim()) continue;           // skip blanks
-      if (hasDate(lines[j].trim())) companyIdx.add(i);
-      break;                                     // only look at immediate next non-blank
-    }
-  }
-
-  // Pass 2: build entries
   const entries = [];
   let pendingCompany = "";
   let currentEntry   = null;
 
-  for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
+  for (const raw of lines) {
+    const trimmed = raw.trim();
     if (!trimmed) continue;
 
-    if (companyIdx.has(i)) {
-      pendingCompany = cleanCompanyName(trimmed);
-      currentEntry   = null;
-    } else if (hasDate(trimmed)) {
-      const { role, date } = extractRoleDate(trimmed);
-      currentEntry = { company: pendingCompany, role, date, bullets: [] };
-      entries.push(currentEntry);
-      pendingCompany = "";
-    } else if (isBulletLine(trimmed)) {
+    if (isBulletLine(trimmed)) {
       if (!currentEntry) {
         currentEntry = { company: pendingCompany, role: "", date: "", bullets: [] };
         entries.push(currentEntry);
         pendingCompany = "";
       }
       currentEntry.bullets.push(stripBullet(trimmed));
-    } else if (currentEntry) {
-      // Non-company, non-date, non-bullet inside an active entry:
-      // the leading bullet character was stripped – treat as bullet body.
-      currentEntry.bullets.push(trimmed);
+    } else if (hasDate(trimmed)) {
+      const { role, date } = extractRoleDate(trimmed);
+      currentEntry = { company: pendingCompany, role, date, bullets: [] };
+      entries.push(currentEntry);
+      pendingCompany = "";
+    } else {
+      pendingCompany = cleanCompanyName(trimmed);
+      currentEntry   = null;
     }
-    // else: orphan line before any entry – ignore
   }
 
   return entries;
@@ -315,35 +287,26 @@ function parseEducation(lines) {
 // partial overlap (e.g. "Product Management" before "Management").
 // Applied per-section before cleanMarkdown so ** markers don't fragment matches.
 
-// usedSet (optional Set) tracks which phrases have already been bolded
-// somewhere in the document.  Pass the same Set to every section so each
-// phrase is bolded only on its first occurrence.
-function applyPhraseHighlighting(html, phrases, usedSet) {
+function applyPhraseHighlighting(html, phrases) {
   if (!phrases || phrases.length === 0) return html;
   const sorted = [...phrases].sort((a, b) => b.length - a.length);
   for (const phrase of sorted) {
     if (!phrase.trim()) continue;
-    const key = phrase.toLowerCase();
-    if (usedSet && usedSet.has(key)) continue;   // already bolded in an earlier section
     const escapedPhrase = esc(phrase);
     const rePattern = escapedPhrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    let found = false;
     html = html.replace(
       new RegExp(`(<[^>]*>)|${rePattern}`, "gi"),
       (match, tag) => {
         if (tag !== undefined) return tag;
-        found = true;
         return `<strong style="font-weight:700;">${match}</strong>`;
       }
     );
-    if (usedSet && found) usedSet.add(key);
   }
   return html;
 }
 
 // Convenience: highlight then convert markdown bold in one pass.
-const highlight = (html, phrases, usedSet) =>
-  cleanMarkdown(applyPhraseHighlighting(html, phrases, usedSet));
+const highlight = (html, phrases) => cleanMarkdown(applyPhraseHighlighting(html, phrases));
 
 // ─── Print instructions banner (shared) ──────────────────────────────────────
 
@@ -439,27 +402,23 @@ function renderCompetenciesTable(lines, textStyle) {
   return `<table style="width:100%;border-collapse:collapse;margin-bottom:4px;">${rows}</table>`;
 }
 
-// opts: { companyStyle, roleColor, dateColor, bulletColor, textColor, hFn }
-// hFn (optional): called with esc(bulletText) for each bullet — use to apply
-// per-bullet phrase highlighting so keywords are bolded inside bullet spans.
+// opts: { companyStyle, roleColor, dateColor, bulletColor, textColor }
 function renderExperience(entries, opts = {}) {
   const companyStyle = opts.companyStyle || "font-size:12px;font-weight:bold;color:#000;margin-bottom:2px;";
   const roleColor    = opts.roleColor    || "#222";
   const dateColor    = opts.dateColor    || "#666";
   const bulletColor  = opts.bulletColor  || "#444";
   const textColor    = opts.textColor    || "#222";
-  const hFn          = opts.hFn          || null;
 
   return entries.map(({ company, role, date, bullets }) => {
     const bulletsHTML = bullets.length
       ? `<div style="margin-top:4px;">` +
-        bullets.map(b => {
-          const content = hFn ? hFn(esc(b)) : esc(b);
-          return `<div style="display:flex;margin-bottom:4px;">` +
-            `<span style="margin-right:8px;color:${bulletColor};flex-shrink:0;">\u2022</span>` +
-            `<span style="font-size:10px;line-height:1.4;color:${textColor};">${content}</span>` +
-            `</div>`;
-        }).join("") +
+        bullets.map(b =>
+          `<div style="display:flex;margin-bottom:4px;">` +
+          `<span style="margin-right:8px;color:${bulletColor};flex-shrink:0;">\u2022</span>` +
+          `<span style="font-size:10px;line-height:1.4;color:${textColor};">${esc(b)}</span>` +
+          `</div>`
+        ).join("") +
         `</div>`
       : "";
 
@@ -545,17 +504,13 @@ function buildClassicDoc({ name, jobTitle, inlineContactHTML, relocationLine, se
     innerHTML +
     `</div>`;
 
-  // Shared Set ensures each phrase is bolded only on its first occurrence
-  // across the document.  hFn is applied per-bullet inside renderExperience
-  // so keywords are guaranteed to be highlighted in bullet text.
-  const used = new Set();
-  const h    = (html) => highlight(html, boldPhrases, used);
-  const hFn  = (escapedText) =>
-    applyPhraseHighlighting(cleanMarkdown(escapedText), boldPhrases, used);
+  // Apply phrase highlighting + markdown cleanup per-section so every section
+  // gets bold keywords, not just the first one where the phrase appears.
+  const h = (html) => highlight(html, boldPhrases);
 
   const summaryHTML      = h(renderSummary(sections.summary));
   const competenciesHTML = h(renderCompetenciesTable(sections.competencies));
-  const experienceHTML   = cleanMarkdown(renderExperience(parsedExperience, { hFn }));
+  const experienceHTML   = h(renderExperience(parsedExperience));
   const educationHTML    = h(renderEducation(parsedEducation));
   const skillsHTML       = h(renderBulletSection(sections.skills));
 
@@ -633,19 +588,15 @@ function buildModernDoc({ name, jobTitle, contactParts, relocationLine, sections
     (skillsContent       ? sidebarSection(sections.skillsTitle,        skillsContent)       : "") +
     (competenciesContent.trim() ? sidebarSection(sections.competenciesTitle, competenciesContent) : "");
 
-  const used = new Set();
-  const h    = (html) => highlight(html, boldPhrases, used);
-  const hFn  = (escapedText) =>
-    applyPhraseHighlighting(cleanMarkdown(escapedText), boldPhrases, used);
+  const h = (html) => highlight(html, boldPhrases);
 
   const summaryHTML    = h(renderSummary(sections.summary,   "font-size:10px;line-height:1.5;margin-bottom:4px;color:#333;"));
-  const experienceHTML = cleanMarkdown(renderExperience(parsedExperience, {
+  const experienceHTML = h(renderExperience(parsedExperience, {
     companyStyle: "font-size:11px;font-weight:bold;color:#111;margin-bottom:2px;",
     roleColor:    "#00E5A0",
     dateColor:    "#888",
     bulletColor:  "#666",
     textColor:    "#333",
-    hFn,
   }));
   const educationHTML  = h(renderEducation(parsedEducation));
 
@@ -705,20 +656,16 @@ function buildExecutiveDoc({ name, jobTitle, contactParts, relocationLine, secti
 
   const contactLine = contactParts.join("  \u00B7  ");
 
-  const used = new Set();
-  const h    = (html) => highlight(html, boldPhrases, used);
-  const hFn  = (escapedText) =>
-    applyPhraseHighlighting(cleanMarkdown(escapedText), boldPhrases, used);
+  const h = (html) => highlight(html, boldPhrases);
 
   const summaryHTML      = h(renderSummary(sections.summary,    "font-size:10px;line-height:1.55;margin-bottom:4px;color:#374151;"));
   const competenciesHTML = h(renderCompetenciesTable(sections.competencies, "font-size:9.5px;line-height:1.6;color:#374151;"));
-  const experienceHTML   = cleanMarkdown(renderExperience(parsedExperience, {
+  const experienceHTML   = h(renderExperience(parsedExperience, {
     companyStyle: "font-size:12px;font-weight:bold;color:#0F172A;margin-bottom:2px;",
     roleColor:    "#00E5A0",
     dateColor:    "#64748b",
     bulletColor:  "#475569",
     textColor:    "#374151",
-    hFn,
   }));
   const educationHTML    = h(renderEducation(parsedEducation));
   const skillsHTML       = h(renderBulletSection(sections.skills, "font-size:10px;line-height:1.4;color:#374151;"));
