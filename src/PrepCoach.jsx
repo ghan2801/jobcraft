@@ -1,5 +1,225 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTheme } from "./ThemeContext";
+
+const PREP_MESSAGES = [
+  { emoji: "🔍", action: "Searching",   rest: " real interview experiences…" },
+  { emoji: "📊", action: "Analysing",   rest: " interview patterns…" },
+  { emoji: "🎯", action: "Mapping",     rest: " your skills to job requirements…" },
+  { emoji: "📚", action: "Identifying", rest: " your preparation priorities…" },
+  { emoji: "🗓️", action: "Building",    rest: " your day-by-day plan…" },
+  { emoji: "💡", action: "Finding",     rest: " the best resources for you…" },
+  { emoji: "🔑", action: "Generating",  rest: " likely interview questions…" },
+  { emoji: "✅", action: "Finalising",  rest: " your prep strategy…" },
+];
+
+const LEFT_DOC_LINES  = [62, 85, 55, 78, 48];
+const RIGHT_DOC_LINES = [62, 85, 55, 78, 48];
+
+function PrepLoader({ companyName }) {
+  const { theme } = useTheme();
+  const ac = theme.accent;
+
+  const msgs = PREP_MESSAGES.map((m, i) =>
+    i === 1
+      ? { ...m, rest: ` interview patterns at ${companyName || "the company"}…` }
+      : m
+  );
+
+  const [msgIndex, setMsgIndex] = useState(0);
+  const [fade,     setFade]     = useState(true);
+  const [progress, setProgress] = useState(0);
+  const startTime = useRef(Date.now());
+  const loopFrom  = 2; // cycle back to message index 2 after the first full pass
+
+  // Message cycling — full pass first, then loop from index 2
+  useEffect(() => {
+    const id = setInterval(() => {
+      setFade(false);
+      setTimeout(() => {
+        setMsgIndex(prev => (prev < msgs.length - 1 ? prev + 1 : loopFrom));
+        setFade(true);
+      }, 300);
+    }, 2500);
+    return () => clearInterval(id);
+  }, [msgs.length]);
+
+  // Progress bar: 0 → 85 % over 30 s
+  useEffect(() => {
+    const id = setInterval(() => {
+      const elapsed = (Date.now() - startTime.current) / 1000;
+      setProgress(Math.min(85, (elapsed / 30) * 85));
+    }, 100);
+    return () => clearInterval(id);
+  }, []);
+
+  const msg = msgs[msgIndex] || msgs[0];
+
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column", alignItems: "center",
+      gap: 18, padding: "28px 20px", minHeight: 380,
+    }}>
+      <style>{`
+        @keyframes prep-pulse-glow {
+          0%, 100% { box-shadow: 0 0 14px ${ac}45, 0 0 30px ${ac}20; border-color: ${ac}; }
+          50%       { box-shadow: 0 0 28px ${ac}80, 0 0 56px ${ac}38; border-color: ${ac}; }
+        }
+        @keyframes prep-shimmer {
+          0%, 100% { opacity: 0.5; transform: scaleX(0.94); }
+          50%       { opacity: 1;   transform: scaleX(1); }
+        }
+        @keyframes prep-dots {
+          0%        { transform: translateX(-50px); opacity: 0; }
+          20%, 80%  { opacity: 1; }
+          100%      { transform: translateX(50px);  opacity: 0; }
+        }
+        @keyframes prep-msg {
+          from { opacity: 0; transform: translateY(5px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+
+      {/* ── DOCUMENT TRANSFORM SCENE ── */}
+      <div style={{
+        position: "relative",
+        display: "flex", alignItems: "center",
+        backgroundImage: `radial-gradient(circle, ${theme.border} 1px, transparent 1px)`,
+        backgroundSize: "18px 18px",
+        borderRadius: 16,
+        padding: "22px 28px 18px",
+      }}>
+
+        {/* LEFT — "Your Profile" (gray, dimmed) */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7 }}>
+          <div style={{
+            width: 120, height: 160,
+            background: theme.card,
+            border: `1px solid ${theme.border}`,
+            borderRadius: 8,
+            padding: "14px 13px 10px",
+            display: "flex", flexDirection: "column", gap: 9,
+            opacity: 0.6,
+          }}>
+            {/* header line */}
+            <div style={{ width: "68%", height: 8, background: theme.textFaint, borderRadius: 3 }} />
+            {/* body lines */}
+            {LEFT_DOC_LINES.map((w, i) => (
+              <div key={i} style={{
+                width: `${w}%`, height: 5,
+                background: theme.border, borderRadius: 2,
+              }} />
+            ))}
+          </div>
+          <span style={{
+            fontSize: 10, color: theme.textMuted,
+            fontFamily: "'DM Mono', monospace", letterSpacing: "0.06em",
+          }}>Your Profile</span>
+        </div>
+
+        {/* ANIMATED ARROW */}
+        <div style={{ width: 72, position: "relative", display: "flex", alignItems: "center", marginBottom: 18 }}>
+          {/* track */}
+          <div style={{
+            position: "absolute", left: 0, right: 10,
+            height: 2, background: `${ac}35`, top: "50%", transform: "translateY(-50%)",
+          }} />
+          {/* moving dots */}
+          {[0, 1, 2].map(i => (
+            <div key={i} style={{
+              position: "absolute", left: "50%", top: "50%",
+              width: 7, height: 7, borderRadius: "50%",
+              background: ac,
+              transform: "translate(-50%, -50%)",
+              animation: `prep-dots 1.5s ease-in-out infinite`,
+              animationDelay: `${i * 0.5}s`,
+            }} />
+          ))}
+          {/* arrowhead */}
+          <div style={{
+            position: "absolute", right: 0, top: "50%",
+            transform: "translateY(-50%)",
+            width: 0, height: 0,
+            borderTop: "5px solid transparent",
+            borderBottom: "5px solid transparent",
+            borderLeft: `9px solid ${ac}`,
+          }} />
+        </div>
+
+        {/* RIGHT — "Interview Ready" (glowing green) */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7 }}>
+          <div style={{
+            width: 120, height: 160,
+            background: theme.card,
+            border: `2px solid ${ac}`,
+            borderRadius: 8,
+            padding: "14px 13px 10px",
+            display: "flex", flexDirection: "column", gap: 9,
+            animation: "prep-pulse-glow 2.4s ease-in-out infinite",
+          }}>
+            {/* header line */}
+            <div style={{
+              width: "68%", height: 8,
+              background: ac, borderRadius: 3,
+              animation: "prep-shimmer 1.8s ease-in-out infinite",
+            }} />
+            {/* body lines */}
+            {RIGHT_DOC_LINES.map((w, i) => (
+              <div key={i} style={{
+                width: `${w}%`, height: 5,
+                background: i % 2 === 0 ? `${ac}95` : `${ac}55`,
+                borderRadius: 2,
+                animation: `prep-shimmer 1.8s ease-in-out infinite`,
+                animationDelay: `${i * 0.28}s`,
+              }} />
+            ))}
+          </div>
+          <span style={{
+            fontSize: 10, color: ac,
+            fontFamily: "'DM Mono', monospace",
+            letterSpacing: "0.06em", fontWeight: 600,
+          }}>Interview Ready</span>
+        </div>
+      </div>
+
+      {/* ── CYCLING MESSAGE ── */}
+      <p
+        key={msgIndex}
+        style={{
+          color: theme.text, fontSize: 15,
+          fontFamily: "'DM Mono', monospace",
+          textAlign: "center", margin: 0,
+          opacity: fade ? 1 : 0, transition: "opacity 0.3s",
+          animation: "prep-msg 0.35s ease",
+        }}
+      >
+        <span style={{ marginRight: 6 }}>{msg.emoji}</span>
+        <strong style={{ color: theme.textStrong }}>{msg.action}</strong>
+        {msg.rest}
+      </p>
+
+      {/* ── PROGRESS BAR ── */}
+      <div style={{
+        width: "100%", maxWidth: 340, height: 3,
+        background: theme.border, borderRadius: 4, overflow: "hidden",
+      }}>
+        <div style={{
+          height: "100%", width: `${progress}%`,
+          background: ac, borderRadius: 4,
+          transition: "width 0.15s linear",
+        }} />
+      </div>
+
+      {/* ── SUBTITLE ── */}
+      <p style={{
+        color: theme.textFaint, fontSize: 12,
+        fontFamily: "'DM Mono', monospace",
+        textAlign: "center", margin: 0, lineHeight: 1.6,
+      }}>
+        Searching the web + generating your plan… (~30 seconds)
+      </p>
+    </div>
+  );
+}
 
 function Section({ title, emoji, children, defaultOpen = false }) {
   const { theme } = useTheme();
@@ -215,17 +435,7 @@ export default function PrepCoach({
 
   // ── Loading screen ────────────────────────────────────────────
   if (prepLoading) {
-    return (
-      <div style={{ textAlign: "center", padding: "60px 0" }}>
-        <div style={{ fontSize: 36, marginBottom: 16 }}>🎯</div>
-        <p style={{ color: theme.textStrong, fontSize: 16, fontWeight: 700, marginBottom: 8, fontFamily: "'Syne', sans-serif" }}>
-          Building your prep plan…
-        </p>
-        <p style={{ color: theme.textMuted, fontSize: 13, fontFamily: "'DM Mono', monospace" }}>
-          Researching {companyName || "the company"}, role requirements, and tailoring your plan
-        </p>
-      </div>
-    );
+    return <PrepLoader companyName={companyName} />;
   }
 
   // ── Prep plan display ─────────────────────────────────────────
@@ -306,9 +516,14 @@ export default function PrepCoach({
           )}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {(readiness_assessment.items || []).map((item, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, padding: "10px 14px", background: theme.background, borderRadius: 8, border: `1px solid ${theme.border}` }}>
-                <span style={{ fontSize: 13, color: theme.text, lineHeight: 1.5, fontFamily: "'DM Mono', monospace" }}>{item.label}</span>
-                <ReadinessBadge level={item.level} />
+              <div key={i} style={{ padding: "10px 14px", background: theme.background, borderRadius: 8, border: `1px solid ${theme.border}` }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                  <span style={{ fontSize: 13, color: theme.text, lineHeight: 1.5, fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>{item.label}</span>
+                  <ReadinessBadge level={item.level} />
+                </div>
+                {item.note && (item.level === "neutral" || item.level === "gap") && (
+                  <p style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'DM Mono', monospace", lineHeight: 1.6, marginTop: 5, paddingTop: 5, borderTop: `1px solid ${theme.border}` }}>{item.note}</p>
+                )}
               </div>
             ))}
           </div>

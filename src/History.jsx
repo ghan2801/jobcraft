@@ -38,7 +38,7 @@ function getDateCutoff(filter) {
   }
 }
 
-const GRID = "2fr 2fr 80px 80px 110px 140px 90px 40px";
+const GRID = "2fr 2fr 80px 80px 110px 140px 160px 40px";
 
 export default function History({ session, onBack, onLogout }) {
   const { theme, isDark, toggleTheme } = useTheme();
@@ -74,6 +74,139 @@ export default function History({ session, onBack, onLogout }) {
   function openResume(tailoredResume) {
     const html = generateResumeHTML(tailoredResume || "");
     const tab  = window.open("", "_blank");
+    if (tab) { tab.document.write(html); tab.document.close(); }
+  }
+
+  function openPrepPlan(app) {
+    const plan = app.prep_plan;
+    if (!plan) return;
+    const { interview_structure, readiness_assessment, daily_plan, top_questions, emergency_tips } = plan;
+
+    const esc = s => String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+    const readinessColor = level =>
+      level === "strong" ? "#22c55e" : level === "gap" ? "#ef4444" : "#f59e0b";
+    const readinessLabel = level =>
+      level === "strong" ? "✅ Strong" : level === "gap" ? "🔴 Gap" : "⚠️ Neutral";
+
+    const structureHTML = interview_structure ? `
+      <section>
+        <h2>🗂️ Interview Structure</h2>
+        ${interview_structure.overview ? `<p class="verdict">${esc(interview_structure.overview)}</p>` : ""}
+        ${(interview_structure.rounds || []).map((r, i) => `
+          <div class="round">
+            <div class="round-num">${i + 1}</div>
+            <div>
+              <strong>${esc(r.name)}</strong>${r.duration ? ` <span class="muted"> · ${esc(r.duration)}</span>` : ""}
+              <p class="muted">${esc(r.description)}</p>
+            </div>
+          </div>`).join("")}
+      </section>` : "";
+
+    const readinessHTML = readiness_assessment ? `
+      <section>
+        <h2>📊 Readiness Assessment</h2>
+        ${readiness_assessment.overall_verdict ? `<p class="verdict">${esc(readiness_assessment.overall_verdict)}</p>` : ""}
+        <div class="items">
+          ${(readiness_assessment.items || []).map(item => `
+            <div class="item">
+              <span class="item-label">${esc(item.label)}</span>
+              <span class="badge" style="color:${readinessColor(item.level)};border-color:${readinessColor(item.level)}40;background:${readinessColor(item.level)}15">${readinessLabel(item.level)}</span>
+              ${item.note && item.level !== "strong" ? `<p class="item-note">${esc(item.note)}</p>` : ""}
+            </div>`).join("")}
+        </div>
+      </section>` : "";
+
+    const dailyHTML = (daily_plan || []).length ? `
+      <section>
+        <h2>📅 Day-by-Day Plan</h2>
+        ${daily_plan.map(day => `
+          <div class="day-card">
+            <div class="day-header"><span class="day-num">Day ${day.day}</span> ${esc(day.theme)}</div>
+            <ul>
+              ${(day.tasks || []).map(t => `<li><label><input type="checkbox"> ${esc(t)}</label></li>`).join("")}
+            </ul>
+          </div>`).join("")}
+      </section>` : "";
+
+    const questionsHTML = (top_questions || []).length ? `
+      <section>
+        <h2>💬 Top Interview Questions</h2>
+        ${top_questions.map((q, i) => `
+          <div class="question">
+            <div class="q-header">
+              <span class="q-num">${i + 1}</span>
+              <span class="cat-badge">${esc(q.category || "General")}</span>
+              <strong>${esc(q.question)}</strong>
+            </div>
+            ${q.answer_guide ? `<p class="answer-guide"><strong>How to answer:</strong> ${esc(q.answer_guide)}</p>` : ""}
+          </div>`).join("")}
+      </section>` : "";
+
+    const tipsHTML = (emergency_tips || []).length ? `
+      <section>
+        <h2>🚨 Emergency Tips</h2>
+        <ul>${emergency_tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul>
+      </section>` : "";
+
+    const html = `<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prep Plan – ${esc(app.company_name)} ${esc(app.job_title)}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Syne', sans-serif; background: #0d0d0d; color: #e2e2e2; padding: 40px 24px; }
+  .page { max-width: 780px; margin: 0 auto; }
+  header { margin-bottom: 36px; padding-bottom: 20px; border-bottom: 1px solid #2a2a2a; }
+  header h1 { font-size: 26px; font-weight: 800; color: #fff; letter-spacing: -0.02em; margin-bottom: 6px; }
+  header .meta { font-size: 12px; color: #666; font-family: 'DM Mono', monospace; }
+  section { background: #161616; border: 1px solid #2a2a2a; border-radius: 12px; padding: 22px 24px; margin-bottom: 16px; }
+  h2 { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 14px; }
+  .verdict { font-size: 13px; color: #999; line-height: 1.7; margin-bottom: 14px; font-family: 'DM Mono', monospace; }
+  .muted { color: #666; font-size: 12px; font-family: 'DM Mono', monospace; }
+  .round { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
+  .round-num { width: 24px; height: 24px; background: #00E5A015; border: 1px solid #00E5A040; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #00E5A0; font-family: 'DM Mono', monospace; font-weight: 700; flex-shrink: 0; }
+  .round strong { font-size: 13px; color: #e2e2e2; }
+  .round p { margin-top: 3px; }
+  .items { display: flex; flex-direction: column; gap: 8px; }
+  .item { padding: 10px 14px; background: #0d0d0d; border-radius: 8px; border: 1px solid #2a2a2a; }
+  .item-label { font-size: 13px; font-family: 'DM Mono', monospace; font-weight: 600; color: #e2e2e2; }
+  .badge { font-size: 11px; font-family: 'DM Mono', monospace; font-weight: 600; border: 1px solid; border-radius: 5px; padding: 2px 7px; margin-left: 10px; }
+  .item-note { font-size: 11px; color: #666; font-family: 'DM Mono', monospace; line-height: 1.6; margin-top: 6px; padding-top: 6px; border-top: 1px solid #2a2a2a; }
+  .day-card { border: 1px solid #2a2a2a; border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
+  .day-header { background: #1e1e1e; padding: 10px 14px; font-size: 13px; font-weight: 600; color: #e2e2e2; }
+  .day-num { color: #00E5A0; margin-right: 8px; font-family: 'DM Mono', monospace; }
+  .day-card ul { padding: 10px 14px; list-style: none; }
+  .day-card li { margin-bottom: 8px; }
+  .day-card label { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #ccc; font-family: 'DM Mono', monospace; line-height: 1.5; cursor: pointer; }
+  .day-card input[type=checkbox] { margin-top: 2px; accent-color: #00E5A0; flex-shrink: 0; }
+  .question { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #2a2a2a; }
+  .question:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+  .q-header { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+  .q-num { font-size: 11px; background: #00E5A015; color: #00E5A0; border: 1px solid #00E5A040; border-radius: 5px; padding: 2px 6px; font-family: 'DM Mono', monospace; font-weight: 700; flex-shrink: 0; }
+  .cat-badge { font-size: 10px; background: #ffffff0d; color: #888; border: 1px solid #2a2a2a; border-radius: 4px; padding: 2px 6px; font-family: 'DM Mono', monospace; flex-shrink: 0; }
+  .q-header strong { font-size: 13px; color: #e2e2e2; line-height: 1.4; }
+  .answer-guide { font-size: 12px; color: #888; font-family: 'DM Mono', monospace; line-height: 1.7; }
+  section ul { padding-left: 18px; }
+  section ul li { font-size: 13px; color: #ccc; font-family: 'DM Mono', monospace; line-height: 1.7; margin-bottom: 4px; }
+  @media print { body { background: #fff; color: #000; } section { background: #fff; border-color: #ddd; } }
+</style>
+</head><body>
+<div class="page">
+  <header>
+    <h1>🎯 Interview Prep Plan</h1>
+    <p class="meta">${esc(app.job_title || "Role")}${app.company_name ? ` · ${esc(app.company_name)}` : ""}${app.days_until_interview ? ` · ${app.days_until_interview} day${app.days_until_interview !== 1 ? "s" : ""} to interview` : ""}</p>
+  </header>
+  ${structureHTML}
+  ${readinessHTML}
+  ${dailyHTML}
+  ${questionsHTML}
+  ${tipsHTML}
+</div>
+</body></html>`;
+
+    const tab = window.open("", "_blank");
     if (tab) { tab.document.write(html); tab.document.close(); }
   }
 
@@ -365,8 +498,8 @@ export default function History({ session, onBack, onLogout }) {
                         ))}
                       </select>
 
-                      {/* View Resume button */}
-                      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                      {/* View Resume + Prep Plan buttons */}
+                      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
                         <button
                           className="view-btn"
                           onClick={() => openResume(app.tailored_resume)}
@@ -375,11 +508,27 @@ export default function History({ session, onBack, onLogout }) {
                             border: `1px solid ${theme.accent}40`, borderRadius: 7,
                             padding: "5px 10px", fontSize: 11, fontWeight: 600,
                             cursor: "pointer", fontFamily: "'DM Mono', monospace",
-                            transition: "opacity 0.15s",
+                            transition: "opacity 0.15s", whiteSpace: "nowrap",
                           }}
                         >
                           View PDF
                         </button>
+                        {app.prep_plan && (
+                          <button
+                            className="view-btn"
+                            title="View prep plan"
+                            onClick={() => openPrepPlan(app)}
+                            style={{
+                              background: "#22c55e18", color: "#22c55e",
+                              border: "1px solid #22c55e40", borderRadius: 7,
+                              padding: "5px 8px", fontSize: 11, fontWeight: 600,
+                              cursor: "pointer", fontFamily: "'DM Mono', monospace",
+                              transition: "opacity 0.15s", whiteSpace: "nowrap",
+                            }}
+                          >
+                            📋 Prep
+                          </button>
+                        )}
                       </div>
 
                       {/* Archive / Unarchive button */}

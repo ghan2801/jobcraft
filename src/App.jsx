@@ -433,6 +433,7 @@ function JobCraft({ session, onLogout, onShowHistory, onShowProfile }) {
   const [coverLetterError,   setCoverLetterError]   = useState("");
   const [coverLetterCopied,  setCoverLetterCopied]  = useState(false);
   const [applicationId,      setApplicationId]      = useState(null);
+  const [intelligenceLoading, setIntelligenceLoading] = useState(false);
   const [prepPlan,           setPrepPlan]           = useState(null);
   const [prepLoading,        setPrepLoading]        = useState(false);
   const [prepError,          setPrepError]          = useState("");
@@ -530,20 +531,37 @@ Nice to have:
 
 We offer competitive salary, equity, and remote-first culture.`;
 
+  const truncateJD = (text, maxChars = 3000) => {
+    if (!text || text.length <= maxChars) return text;
+    const truncated = text.slice(0, maxChars);
+    const lastParagraph = truncated.lastIndexOf('\n\n');
+    if (lastParagraph > 2000) {
+      return truncated.slice(0, lastParagraph) + '\n\n[JD truncated for processing...]';
+    }
+    return truncated + '\n\n[JD truncated...]';
+  };
+
   async function tailorResume() {
-   
-    
+    const processedJD = truncateJD(jd);
     setLoading(true);
     setError("");
+    setChangeSummary(null);
+    setGapReport(null);
+    setReviewableChanges([]);
+    setAcceptedChanges(new Set());
+
+    // ── CALL 1: Core tailoring (fast) ────────────────────────────
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 55000);
+    let tailoredResume = "";
     try {
       const response = await fetch("/api/proxy", {
         method: "POST",
-        headers: {
-          "content-type": "application/json"
-        },
+        signal: controller.signal,
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
-          max_tokens: 8000,
+          max_tokens: 6000,
           messages: [{
             role: "user",
             content: `You are a world-class resume writer and ATS optimization specialist with deep expertise in matching resumes to job descriptions.
@@ -623,65 +641,15 @@ JSON format:
   "original_ats_score": <number 0-100>,
   "tailored_resume": "the full tailored resume text",
   "ats_score": <number 0-100>,
-  "key_changes": ["change 1", "change 2", "change 3"],
   "job_title": "exact job title from the JD",
   "company_name": "company name from the JD",
-  "change_summary": {
-    "title_change": {
-      "from": "original job title in resume",
-      "to": "new job title in tailored resume",
-      "reason": "why this was changed"
-    },
-    "keywords_added": [
-      {
-        "keyword": "keyword name",
-        "added_where": "e.g. Skills section",
-        "reason": "e.g. appears 3 times in JD"
-      }
-    ],
-    "sections_reframed": [
-      {
-        "section": "section name",
-        "change": "what changed",
-        "reason": "why"
-      }
-    ],
-    "removed_or_deemphasized": [
-      {
-        "item": "what was removed or toned down",
-        "reason": "why it was de-emphasized"
-      }
-    ],
-    "overall_strategy": "one sentence explaining the overall tailoring approach"
-  },
-  "gap_report": {
-    "original_score_reason": "one sentence explaining why the original resume scored low",
-    "strong_matches": ["skill or keyword that already matched well"],
-    "keywords_added": [
-      {
-        "keyword": "keyword name",
-        "frequency_in_jd": <number>,
-        "added_to_resume": true,
-        "added_where": "e.g. Skills and Summary sections"
-      }
-    ],
-    "skills_still_missing": [
-      {
-        "skill": "skill name",
-        "frequency_in_jd": <number>,
-        "importance": "critical/moderate/minor",
-        "reason": "why this matters for the role"
-      }
-    ],
-    "job_fit_score": "high/moderate/low",
-    "job_fit_reason": "one sentence explaining the fit assessment",
-    "recommended_action": "apply_confidently/apply_with_preparation/consider_skipping"
-  },
+  "bold_phrases": ["exact phrase from resume to bold"],
+  "key_changes": ["change 1", "change 2", "change 3"],
   "reviewable_changes": [
     {
       "id": "change_1",
       "type": "title_change/keyword_added/section_reframed/skill_added",
-      "description": "short description of this specific change",
+      "description": "short description under 100 characters",
       "original_text": "original text if applicable, else empty string",
       "new_text": "the new text added or changed",
       "location": "where in the resume this appears",
@@ -689,8 +657,7 @@ JSON format:
       "risk_level": "safe/moderate/risky",
       "risk_reason": "explanation only if moderate or risky, else empty string"
     }
-  ],
-  "bold_phrases": ["exact phrase from resume to bold"]
+  ]
 }
 
 Where:
@@ -698,48 +665,128 @@ Where:
 - ats_score = how well the TAILORED resume matches the JD (after optimization)
 - job_title = the job title as stated in the JD (e.g. "Senior Software Engineer")
 - company_name = the hiring company name as stated in the JD (e.g. "Acme Corp")
-- change_summary = detailed breakdown of every meaningful change made
-- gap_report = keyword gap analysis comparing resume against JD requirements
-- reviewable_changes = list of 5-12 individual changes the user can accept/reject, each with ats_impact (how many ATS points that change contributes)
 - bold_phrases = maximum 6 phrases from the tailored resume that are the most impressive and impactful moments; each phrase must appear EXACTLY ONCE in the resume (no repeated bolding); pick specific numbers/achievements (e.g. "reduced manual effort by 40%"), scale indicators (e.g. "150+ dashboards"), unique high-value skills specific to this JD (e.g. "DORA metrics framework"), or exact tools that match the JD (e.g. "AWS Redshift"); do NOT pick generic phrases like "data-driven" or "stakeholder management"; return the exact text as it appears in the tailored resume
+- reviewable_changes = identify maximum 8 most impactful changes made; keep all descriptions under 100 characters each
 
 ORIGINAL RESUME:
 ${resume}
 
 JOB DESCRIPTION:
-${jd}`
+${processedJD}`
           }]
         })
       });
+      clearTimeout(timeoutId);
       const data = await response.json();
       const text = data.content.map(b => b.text || "").join("");
       const clean = text.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(clean);
-      setTailored(parsed.tailored_resume);
-      setOriginalTailored(parsed.tailored_resume);
+
+      tailoredResume = parsed.tailored_resume;
+      setTailored(tailoredResume);
+      setOriginalTailored(tailoredResume);
       setAtsScore(parsed.ats_score);
       setOriginalAtsScore(parsed.original_ats_score);
       setJobTitle(parsed.job_title || "");
       setCompanyName(parsed.company_name || "");
-      setChangeSummary(parsed.change_summary || null);
-      setGapReport(parsed.gap_report || null);
-      const rc = parsed.reviewable_changes || [];
-      setReviewableChanges(rc);
-      setAcceptedChanges(new Set(rc.map(c => c.id)));
       setBoldPhrases(parsed.bold_phrases || []);
+      if (parsed.reviewable_changes) {
+        setReviewableChanges(parsed.reviewable_changes);
+        setAcceptedChanges(new Set(parsed.reviewable_changes.map(c => c.id)));
+      }
       setStep(2);
-      // Save immediately using parsed values — state setters above are async
       saveApplication({
-        tailoredResume: parsed.tailored_resume,
-        origAtsScore:   parsed.original_ats_score,
-        newAtsScore:    parsed.ats_score,
-        title:          parsed.job_title   || "",
-        company:        parsed.company_name || "",
+        tailoredResume,
+        origAtsScore: parsed.original_ats_score,
+        newAtsScore:  parsed.ats_score,
+        title:        parsed.job_title   || "",
+        company:      parsed.company_name || "",
       });
     } catch (e) {
-      setError("Something went wrong. Please try again.");
+      clearTimeout(timeoutId);
+      if (e.name === 'AbortError') {
+        setError('This is taking longer than usual. Please try again — large JDs sometimes need a second attempt.');
+      } else {
+        setError('Something went wrong. Please try again.');
+      }
+      return;
     } finally {
       setLoading(false);
+    }
+
+    // ── CALL 2: Intelligence layer (runs after results are shown) ──
+    setIntelligenceLoading(true);
+    const controller2 = new AbortController();
+    const timeoutId2 = setTimeout(() => controller2.abort(), 60000);
+    try {
+      const response2 = await fetch("/api/proxy", {
+        method: "POST",
+        signal: controller2.signal,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 4000,
+          messages: [{
+            role: "user",
+            content: `Based on this original resume and tailored resume, provide analysis. Return ONLY a JSON object with no markdown, no backticks, nothing else.
+
+IMPORTANT: Your entire response must be valid, complete JSON. Do not truncate. Keep each string value under 200 characters. Use short concise descriptions.
+
+ORIGINAL RESUME:
+${resume.slice(0, 1500)}
+
+TAILORED RESUME:
+${tailoredResume.slice(0, 1500)}
+
+JOB DESCRIPTION:
+${processedJD.slice(0, 800)}
+
+Return exactly this JSON structure:
+{
+  "change_summary": {
+    "overall_strategy": "one sentence on the tailoring approach",
+    "title_change": {
+      "from": "original title",
+      "to": "new title",
+      "reason": "why changed (max 100 chars)"
+    },
+    "keywords_added": [
+      { "keyword": "keyword", "added_where": "section name", "reason": "why added (max 80 chars)" }
+    ],
+    "sections_reframed": [
+      { "section": "section name", "change": "what changed (max 100 chars)", "reason": "why (max 80 chars)" }
+    ]
+  },
+  "gap_report": {
+    "original_score_reason": "one sentence why original scored lower",
+    "strong_matches": ["skill1", "skill2", "skill3"],
+    "skills_still_missing": [
+      { "skill": "skill name", "frequency_in_jd": 2, "importance": "critical", "reason": "why it matters (max 80 chars)" }
+    ],
+    "job_fit_score": "high",
+    "job_fit_reason": "one sentence on fit",
+    "recommended_action": "apply_confidently"
+  }
+}`
+          }]
+        })
+      });
+      clearTimeout(timeoutId2);
+      const intel = await response2.json();
+      console.log("Call 2 raw response:", intel);
+      const text2 = intel.content.map(b => b.text || "").join("");
+      const clean2 = text2.replace(/```json|```/g, "").trim();
+      const parsed2 = JSON.parse(clean2);
+      console.log("Setting changeSummary:", parsed2.change_summary);
+      setChangeSummary(parsed2.change_summary || null);
+      console.log("Setting gapReport:", parsed2.gap_report);
+      setGapReport(parsed2.gap_report || null);
+    } catch (e) {
+      clearTimeout(timeoutId2);
+      console.error("Call 2 failed:", e);
+      // Intelligence layer failure is silent — core results already visible
+    } finally {
+      setIntelligenceLoading(false);
     }
   }
 
@@ -846,9 +893,13 @@ ${changesList}`,
     setCoverLetterLoading(true);
     setCoverLetterError("");
     const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const processedJDCL = truncateJD(jd);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 55000);
     try {
       const response = await fetch("/api/proxy", {
         method: "POST",
+        signal: controller.signal,
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
@@ -874,7 +925,7 @@ TAILORED RESUME:
 ${tailored}
 
 JOB DESCRIPTION:
-${jd}
+${processedJDCL}
 
 COMPANY: ${companyName}
 ROLE: ${jobTitle}
@@ -883,14 +934,20 @@ Return ONLY the cover letter text. No JSON. No explanation. Just the letter.`,
           }],
         }),
       });
+      clearTimeout(timeoutId);
       const data = await response.json();
       const letter = data.content.map(b => b.text || "").join("").trim();
       setCoverLetter(letter);
       if (applicationId) {
         await supabase.from("applications").update({ cover_letter: letter }).eq("id", applicationId);
       }
-    } catch {
-      setCoverLetterError("Failed to generate cover letter. Please try again.");
+    } catch (e) {
+      clearTimeout(timeoutId);
+      if (e.name === 'AbortError') {
+        setCoverLetterError('This is taking longer than usual. Please try again — large JDs sometimes need a second attempt.');
+      } else {
+        setCoverLetterError('Failed to generate cover letter. Please try again.');
+      }
     } finally {
       setCoverLetterLoading(false);
     }
@@ -900,96 +957,151 @@ Return ONLY the cover letter text. No JSON. No explanation. Just the letter.`,
     if (!daysUntilInterview) return;
     setPrepLoading(true);
     setPrepError("");
+    // Declared outside try so catch block can access them
+    const prepController = new AbortController();
+    const prepTimeoutId = setTimeout(() => prepController.abort(), 55000);
     try {
-      // Step 1: 3 parallel web searches for company/role context
-      const searchQueries = [
-        `${companyName || jobTitle} interview process rounds questions`,
-        `${jobTitle} interview questions technical behavioral`,
-        `${companyName || jobTitle} company culture values hiring`,
-      ];
-      const searchResults = await Promise.allSettled(
-        searchQueries.map(q =>
-          fetch("/api/search", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ query: q }),
-          }).then(r => r.json()).catch(() => ({ results: [] }))
-        )
-      );
-      const snippets = searchResults
-        .map(r => r.status === "fulfilled" ? r.value : { results: [] })
-        .flatMap(r => (r.results || []).slice(0, 3).map(s => s.snippet || s.description || ""))
-        .filter(Boolean)
-        .slice(0, 12)
-        .join("\n");
+      // Step 1: 3 parallel web searches for company/role context (best-effort)
+      let snippets = "";
+      try {
+        const searchQueries = [
+          `${companyName || jobTitle} interview process rounds questions`,
+          `${jobTitle} interview questions technical behavioral`,
+          `${companyName || jobTitle} company culture values hiring`,
+        ];
+        const searchResults = await Promise.allSettled(
+          searchQueries.map(q =>
+            fetch("/api/search", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ query: q }),
+            }).then(r => {
+              if (!r.ok) throw new Error(`Search returned ${r.status}`);
+              return r.json();
+            }).catch(() => ({ results: [] }))
+          )
+        );
+        snippets = searchResults
+          .map(r => r.status === "fulfilled" ? r.value : { results: [] })
+          .flatMap(r => (r.results || []).slice(0, 3).map(s => s.snippet || s.description || ""))
+          .filter(Boolean)
+          .slice(0, 12)
+          .join("\n");
+      } catch (e) {
+        console.log("Search failed, continuing without web context:", e);
+        snippets = "";
+      }
       setPrepSearchResults(snippets);
 
       // Step 2: Claude generates the full prep plan
       const response = await fetch("/api/proxy", {
         method: "POST",
+        signal: prepController.signal,
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
-          max_tokens: 4000,
+          max_tokens: 6000,
           messages: [{
             role: "user",
-            content: `You are an expert interview coach. Create a detailed, personalised interview preparation plan.
+            content: `You are an expert interview coach. Create a concise, personalised interview preparation plan.
+
+CRITICAL: Your entire response must be valid, complete JSON under 5000 tokens.
+Be extremely concise:
+- Each task description: max 80 characters
+- Each round description: max 80 characters
+- Each question: max 100 characters
+- Each answer_guide: max 100 characters
+- Each tip: max 80 characters
+- Each readiness note: max 80 characters
+- Max 3 tasks per day
+- Max 6 interview questions total
+- Max 6 readiness items total
+- Max 4 emergency tips
 
 CONTEXT:
 - Role: ${jobTitle || "the role"}
 - Company: ${companyName || "the company"}
 - Days until interview: ${daysUntilInterview}
 - Study hours per day: ${hoursPerDay}
-- Tailored resume: ${tailored.slice(0, 1500)}
-- Job description: ${jd.slice(0, 1000)}
-- Research snippets: ${snippets.slice(0, 800)}
+- Tailored resume: ${tailored.slice(0, 1200)}
+- Job description: ${jd.slice(0, 800)}
+- Research snippets: ${snippets ? snippets.slice(0, 600) : "No web search results available. Base analysis on JD and resume only."}
 
 Return ONLY a JSON object. No markdown. No backticks.
 
 {
   "interview_structure": {
-    "overview": "1-2 sentence overview of what to expect",
+    "overview": "1-2 sentence overview (max 120 chars)",
     "rounds": [
-      { "name": "round name", "description": "what happens in this round", "duration": "e.g. 45 min" }
+      { "name": "round name", "description": "max 80 chars", "duration": "e.g. 45 min" }
     ]
   },
   "readiness_assessment": {
     "overall_verdict": "1-2 sentence honest assessment",
     "items": [
-      { "label": "specific skill or requirement from the JD", "level": "strong|neutral|gap" }
+      { "label": "skill from JD (max 60 chars)", "level": "strong|neutral|gap", "note": "for neutral/gap: what is missing (max 80 chars)" }
     ]
   },
   "daily_plan": [
     {
       "day": 1,
-      "theme": "short theme name e.g. Company Deep Dive",
-      "tasks": ["specific actionable task", "specific actionable task"]
+      "theme": "short theme (max 40 chars)",
+      "tasks": ["actionable task (max 80 chars)", "actionable task (max 80 chars)", "actionable task (max 80 chars)"]
     }
   ],
   "top_questions": [
     {
-      "question": "interview question",
+      "question": "interview question (max 100 chars)",
       "category": "Behavioral|Technical|Situational|Culture",
-      "answer_guide": "how to structure a strong answer, what to include"
+      "answer_guide": "how to answer (max 100 chars)"
     }
   ],
-  "emergency_tips": ["concise tip if candidate has very little time"]
+  "emergency_tips": ["concise tip (max 80 chars)"]
 }
 
 Rules:
-- daily_plan must have exactly ${daysUntilInterview} day entries
-- Each day should have ${Math.max(3, Math.round(hoursPerDay * 2))} tasks matching ${hoursPerDay}h of study
-- top_questions: provide 8-12 questions most likely for this specific role and company
-- readiness_assessment.items: 6-10 items drawn directly from the JD requirements
-- emergency_tips: 4-6 tips; focus on high-leverage last-minute actions
-- Tasks must be specific and actionable (not "study the company" but "Read ${companyName || "the company"}'s last 3 blog posts and note 2 strategic themes")`,
+- daily_plan must have exactly ${daysUntilInterview} day entries, max 3 tasks each
+- top_questions: exactly 6 questions most likely for this role and company
+- readiness_assessment.items: exactly 6 items drawn from the JD requirements
+- emergency_tips: exactly 4 tips
+- Tasks must be specific and actionable
+
+STRICT SKILL MATCHING RULES for readiness_assessment:
+
+For each skill/technology in the JD:
+- Mark as STRONG only if the exact tool or very close equivalent is explicitly mentioned in the candidate's resume
+- Mark as NEUTRAL if candidate has transferable experience but NOT the exact tool
+  Example: AWS experience does NOT mean Azure experience. They are different.
+  SQL Server does NOT mean Azure Synapse.
+- Mark as GAP if the tool/skill is not mentioned at all in the resume
+
+SPECIFIC TECHNOLOGY RULES:
+- Azure (Azure SQL, Databricks, ADF, Synapse) is DIFFERENT from AWS (Redshift, Glue, S3). Having AWS = NEUTRAL for Azure, not Strong.
+- QlikView/QlikSense is different from Tableau/Power BI
+- Investment/Asset Management domain knowledge (NAV, AUM, portfolio analytics, MiFID II) is different from general financial services (banking, wealth management)
+- Never mark a skill as Strong just because candidate has general cloud or BI experience. Match the SPECIFIC tool/domain mentioned in the JD.
+
+Be honest and slightly conservative. It is better to flag a gap that does not exist than to miss a real gap that will hurt in the interview.
+
+For each gap or neutral item in readiness_assessment, add a note field with:
+- What exactly is missing compared to what they have
+- How different it is from their existing experience
+- Realistic prep time given the difference`,
           }],
         }),
       });
+      clearTimeout(prepTimeoutId);
       const data = await response.json();
-      const text = data.content.map(b => b.text || "").join("");
-      const clean = text.replace(/```json|```/g, "").trim();
-      const plan = JSON.parse(clean);
+      const rawText = data.content.map(b => b.text || "").join("");
+      const cleaned = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
+      let plan;
+      try {
+        plan = JSON.parse(cleaned);
+      } catch (e) {
+        const lastBrace = cleaned.lastIndexOf('"}');
+        console.warn("PrepCoach JSON parse failed. Length:", cleaned.length, "Last brace at:", lastBrace, "Error:", e.message);
+        throw e;
+      }
       setPrepPlan(plan);
 
       // Step 3: Persist to Supabase
@@ -999,8 +1111,10 @@ Rules:
           days_until_interview: daysUntilInterview,
         }).eq("id", applicationId);
       }
-    } catch {
-      setPrepError("Failed to generate prep plan. Please try again.");
+    }  catch (e) {
+      console.error('PrepCoach full error:', e)
+      console.error('PrepCoach error message:', e.message)
+      setPrepError('Failed: ' + e.message)
     } finally {
       setPrepLoading(false);
     }
@@ -1096,6 +1210,7 @@ Rules:
         textarea { resize: vertical; }
         .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
         .btn-ghost:hover { border-color: ${theme.accent} !important; color: ${theme.accent} !important; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
 
       <div style={{ borderBottom: `1px solid ${theme.border}`, padding: "18px 40px", display: "flex", alignItems: "center", justifyContent: "space-between", background: theme.headerBg, position: "sticky", top: 0, zIndex: 100, boxShadow: isDark ? "none" : "0 1px 4px #0000000A" }}>
@@ -1117,6 +1232,7 @@ Rules:
             setCoverLetterLoading(false);
             setCoverLetterError("");
             setApplicationId(null);
+            setIntelligenceLoading(false);
             setPrepPlan(null);
             setPrepLoading(false);
             setPrepError("");
@@ -1396,25 +1512,39 @@ Rules:
 
             <div style={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 16, overflow: "hidden" }}>
               <div style={{ borderBottom: `1px solid ${theme.border}`, display: "flex" }}>
-                {["diff", "gap", "review", "tailored", "cover", "prep", "feedback"].map(tab => (
-                  <button key={tab} onClick={() => setActiveTab(tab)} style={{ background: "none", border: "none", padding: "14px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", color: activeTab === tab ? theme.accent : theme.textFaint, borderBottom: activeTab === tab ? `2px solid ${theme.accent}` : "2px solid transparent", fontFamily: "'Syne', sans-serif" }}>
-                    {tab === "diff" ? "📊 Changes" : tab === "gap" ? "🔍 Gap Report" : tab === "review" ? "✏️ Review" : tab === "tailored" ? "📄 New Resume" : tab === "cover" ? "✉️ Cover Letter" : tab === "prep" ? "🎯 PrepCoach" : "💬 Refine"}
-                  </button>
-                ))}
+                {["diff", "gap", "review", "tailored", "cover", "prep", "feedback"].map(tab => {
+                  const spin = intelligenceLoading && (tab === "diff" || tab === "gap" || tab === "review");
+                  const label = tab === "diff" ? "📊 Changes" : tab === "gap" ? "🔍 Gap Report" : tab === "review" ? "✏️ Review" : tab === "tailored" ? "📄 New Resume" : tab === "cover" ? "✉️ Cover Letter" : tab === "prep" ? "🎯 PrepCoach" : "💬 Refine";
+                  return (
+                    <button key={tab} onClick={() => setActiveTab(tab)} style={{ background: "none", border: "none", padding: "14px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", color: activeTab === tab ? theme.accent : theme.textFaint, borderBottom: activeTab === tab ? `2px solid ${theme.accent}` : "2px solid transparent", fontFamily: "'Syne', sans-serif", display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}>
+                      {label}{spin && <span style={{ fontSize: 11, opacity: 0.7, animation: "spin 1s linear infinite", display: "inline-block" }}>⟳</span>}
+                    </button>
+                  );
+                })}
               </div>
               <div style={{ padding: 24 }}>
-                {activeTab === "diff" && <ChangeSummary changeSummary={changeSummary} original={resume} tailored={tailored} />}
-                {activeTab === "gap" && <GapReport gapReport={gapReport} originalAtsScore={originalAtsScore} atsScore={atsScore} />}
+                {activeTab === "diff" && (
+                  intelligenceLoading
+                    ? <div style={{ textAlign: "center", padding: "40px 0", color: theme.textMuted, fontFamily: "'DM Mono', monospace", fontSize: 13 }}>⟳ Generating analysis… (~15 seconds)</div>
+                    : <ChangeSummary changeSummary={changeSummary} original={resume} tailored={tailored} />
+                )}
+                {activeTab === "gap" && (
+                  intelligenceLoading
+                    ? <div style={{ textAlign: "center", padding: "40px 0", color: theme.textMuted, fontFamily: "'DM Mono', monospace", fontSize: 13 }}>⟳ Generating analysis… (~15 seconds)</div>
+                    : <GapReport gapReport={gapReport} originalAtsScore={originalAtsScore} atsScore={atsScore} />
+                )}
                 {activeTab === "review" && (
-                  <ReviewMode
-                    reviewableChanges={reviewableChanges}
-                    acceptedChanges={acceptedChanges}
-                    setAcceptedChanges={setAcceptedChanges}
-                    originalAtsScore={originalAtsScore}
-                    atsScore={atsScore}
-                    onApplyChoices={regenerateWithChoices}
-                    loading={loading}
-                  />
+                  intelligenceLoading
+                    ? <div style={{ textAlign: "center", padding: "40px 0", color: theme.textMuted, fontFamily: "'DM Mono', monospace", fontSize: 13 }}>⟳ Generating analysis… (~15 seconds)</div>
+                    : <ReviewMode
+                        reviewableChanges={reviewableChanges}
+                        acceptedChanges={acceptedChanges}
+                        setAcceptedChanges={setAcceptedChanges}
+                        originalAtsScore={originalAtsScore}
+                        atsScore={atsScore}
+                        onApplyChoices={regenerateWithChoices}
+                        loading={loading}
+                      />
                 )}
                 {activeTab === "tailored" && (
                   <div>
@@ -1563,7 +1693,7 @@ Rules:
                     {error && <p style={{ color: "#FF6B6B", fontSize: 13, marginTop: 8 }}>{error}</p>}
                     <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
                       <button className="btn-primary" onClick={refineWithFeedback} disabled={!feedback.trim() || loading} style={{ background: feedback.trim() && !loading ? theme.accent : theme.border, color: feedback.trim() && !loading ? theme.background : theme.textFaint, border: "none", borderRadius: 10, padding: "11px 24px", fontSize: 14, fontWeight: 700, cursor: feedback.trim() && !loading ? "pointer" : "not-allowed", fontFamily: "'Syne', sans-serif" }}>✨ Refine</button>
-                      <button className="btn-ghost" onClick={() => { setStep(0); setTailored(""); setAtsScore(null); setOriginalAtsScore(null); setJobTitle(""); setCompanyName(""); setResume(""); setJD(""); setChangeSummary(null); setGapReport(null); setReviewableChanges([]); setAcceptedChanges(new Set()); setIsReviewMode(false); }} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 10, padding: "11px 22px", fontSize: 14, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>Start Over</button>
+                      <button className="btn-ghost" onClick={() => { setStep(0); setTailored(""); setAtsScore(null); setOriginalAtsScore(null); setJobTitle(""); setCompanyName(""); setResume(""); setJD(""); setChangeSummary(null); setGapReport(null); setReviewableChanges([]); setAcceptedChanges(new Set()); setIsReviewMode(false); setIntelligenceLoading(false); }} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 10, padding: "11px 22px", fontSize: 14, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>Start Over</button>
                     </div>
                   </div>
                 )}
