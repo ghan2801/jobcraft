@@ -9,6 +9,7 @@ import DiffView from "./DiffView";
 import ChangeSummary from "./ChangeSummary";
 import GapReport from "./GapReport";
 import ReviewMode from "./ReviewMode";
+import PrepCoach from "./PrepCoach";
 import { ThemeContext, DARK_THEME, LIGHT_THEME, useTheme } from "./ThemeContext";
 import * as pdfjsLib from "pdfjs-dist";
 import mammoth from "mammoth";
@@ -432,6 +433,12 @@ function JobCraft({ session, onLogout, onShowHistory, onShowProfile }) {
   const [coverLetterError,   setCoverLetterError]   = useState("");
   const [coverLetterCopied,  setCoverLetterCopied]  = useState(false);
   const [applicationId,      setApplicationId]      = useState(null);
+  const [prepPlan,           setPrepPlan]           = useState(null);
+  const [prepLoading,        setPrepLoading]        = useState(false);
+  const [prepError,          setPrepError]          = useState("");
+  const [daysUntilInterview, setDaysUntilInterview] = useState(null);
+  const [hoursPerDay,        setHoursPerDay]        = useState(2);
+  const [prepSearchResults,  setPrepSearchResults]  = useState([]);
   const [fileProcessing,     setFileProcessing]     = useState(false);
   const [fileError,          setFileError]          = useState("");
   const [jdFileProcessing,   setJdFileProcessing]   = useState(false);
@@ -889,6 +896,116 @@ Return ONLY the cover letter text. No JSON. No explanation. Just the letter.`,
     }
   }
 
+  async function generatePrepPlan() {
+    if (!daysUntilInterview) return;
+    setPrepLoading(true);
+    setPrepError("");
+    try {
+      // Step 1: 3 parallel web searches for company/role context
+      const searchQueries = [
+        `${companyName || jobTitle} interview process rounds questions`,
+        `${jobTitle} interview questions technical behavioral`,
+        `${companyName || jobTitle} company culture values hiring`,
+      ];
+      const searchResults = await Promise.allSettled(
+        searchQueries.map(q =>
+          fetch("/api/search", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ query: q }),
+          }).then(r => r.json()).catch(() => ({ results: [] }))
+        )
+      );
+      const snippets = searchResults
+        .map(r => r.status === "fulfilled" ? r.value : { results: [] })
+        .flatMap(r => (r.results || []).slice(0, 3).map(s => s.snippet || s.description || ""))
+        .filter(Boolean)
+        .slice(0, 12)
+        .join("\n");
+      setPrepSearchResults(snippets);
+
+      // Step 2: Claude generates the full prep plan
+      const response = await fetch("/api/proxy", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 4000,
+          messages: [{
+            role: "user",
+            content: `You are an expert interview coach. Create a detailed, personalised interview preparation plan.
+
+CONTEXT:
+- Role: ${jobTitle || "the role"}
+- Company: ${companyName || "the company"}
+- Days until interview: ${daysUntilInterview}
+- Study hours per day: ${hoursPerDay}
+- Tailored resume: ${tailored.slice(0, 1500)}
+- Job description: ${jd.slice(0, 1000)}
+- Research snippets: ${snippets.slice(0, 800)}
+
+Return ONLY a JSON object. No markdown. No backticks.
+
+{
+  "interview_structure": {
+    "overview": "1-2 sentence overview of what to expect",
+    "rounds": [
+      { "name": "round name", "description": "what happens in this round", "duration": "e.g. 45 min" }
+    ]
+  },
+  "readiness_assessment": {
+    "overall_verdict": "1-2 sentence honest assessment",
+    "items": [
+      { "label": "specific skill or requirement from the JD", "level": "strong|neutral|gap" }
+    ]
+  },
+  "daily_plan": [
+    {
+      "day": 1,
+      "theme": "short theme name e.g. Company Deep Dive",
+      "tasks": ["specific actionable task", "specific actionable task"]
+    }
+  ],
+  "top_questions": [
+    {
+      "question": "interview question",
+      "category": "Behavioral|Technical|Situational|Culture",
+      "answer_guide": "how to structure a strong answer, what to include"
+    }
+  ],
+  "emergency_tips": ["concise tip if candidate has very little time"]
+}
+
+Rules:
+- daily_plan must have exactly ${daysUntilInterview} day entries
+- Each day should have ${Math.max(3, Math.round(hoursPerDay * 2))} tasks matching ${hoursPerDay}h of study
+- top_questions: provide 8-12 questions most likely for this specific role and company
+- readiness_assessment.items: 6-10 items drawn directly from the JD requirements
+- emergency_tips: 4-6 tips; focus on high-leverage last-minute actions
+- Tasks must be specific and actionable (not "study the company" but "Read ${companyName || "the company"}'s last 3 blog posts and note 2 strategic themes")`,
+          }],
+        }),
+      });
+      const data = await response.json();
+      const text = data.content.map(b => b.text || "").join("");
+      const clean = text.replace(/```json|```/g, "").trim();
+      const plan = JSON.parse(clean);
+      setPrepPlan(plan);
+
+      // Step 3: Persist to Supabase
+      if (applicationId) {
+        await supabase.from("applications").update({
+          prep_plan: plan,
+          days_until_interview: daysUntilInterview,
+        }).eq("id", applicationId);
+      }
+    } catch {
+      setPrepError("Failed to generate prep plan. Please try again.");
+    } finally {
+      setPrepLoading(false);
+    }
+  }
+
   const handleFile = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -1000,6 +1117,12 @@ Return ONLY the cover letter text. No JSON. No explanation. Just the letter.`,
             setCoverLetterLoading(false);
             setCoverLetterError("");
             setApplicationId(null);
+            setPrepPlan(null);
+            setPrepLoading(false);
+            setPrepError("");
+            setDaysUntilInterview(null);
+            setHoursPerDay(2);
+            setPrepSearchResults([]);
           }}
         >
           <div style={{ width: 32, height: 32, background: theme.accent, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⚡</div>
@@ -1273,9 +1396,9 @@ Return ONLY the cover letter text. No JSON. No explanation. Just the letter.`,
 
             <div style={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 16, overflow: "hidden" }}>
               <div style={{ borderBottom: `1px solid ${theme.border}`, display: "flex" }}>
-                {["diff", "gap", "review", "tailored", "cover", "feedback"].map(tab => (
+                {["diff", "gap", "review", "tailored", "cover", "prep", "feedback"].map(tab => (
                   <button key={tab} onClick={() => setActiveTab(tab)} style={{ background: "none", border: "none", padding: "14px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", color: activeTab === tab ? theme.accent : theme.textFaint, borderBottom: activeTab === tab ? `2px solid ${theme.accent}` : "2px solid transparent", fontFamily: "'Syne', sans-serif" }}>
-                    {tab === "diff" ? "📊 Changes" : tab === "gap" ? "🔍 Gap Report" : tab === "review" ? "✏️ Review" : tab === "tailored" ? "📄 New Resume" : tab === "cover" ? "✉️ Cover Letter" : "💬 Refine"}
+                    {tab === "diff" ? "📊 Changes" : tab === "gap" ? "🔍 Gap Report" : tab === "review" ? "✏️ Review" : tab === "tailored" ? "📄 New Resume" : tab === "cover" ? "✉️ Cover Letter" : tab === "prep" ? "🎯 PrepCoach" : "💬 Refine"}
                   </button>
                 ))}
               </div>
@@ -1415,6 +1538,21 @@ Return ONLY the cover letter text. No JSON. No explanation. Just the letter.`,
                       </div>
                     )}
                   </div>
+                )}
+
+                {activeTab === "prep" && (
+                  <PrepCoach
+                    prepPlan={prepPlan}
+                    prepLoading={prepLoading}
+                    prepError={prepError}
+                    daysUntilInterview={daysUntilInterview}
+                    hoursPerDay={hoursPerDay}
+                    onDaysChange={setDaysUntilInterview}
+                    onHoursChange={setHoursPerDay}
+                    onGenerate={generatePrepPlan}
+                    jobTitle={jobTitle}
+                    companyName={companyName}
+                  />
                 )}
 
                 {activeTab === "feedback" && (
