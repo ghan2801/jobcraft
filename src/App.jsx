@@ -444,6 +444,9 @@ function JobCraft({ session, onLogout, onShowHistory, onShowProfile }) {
   const [fileError,          setFileError]          = useState("");
   const [jdFileProcessing,   setJdFileProcessing]   = useState(false);
   const [jdFileError,        setJdFileError]        = useState("");
+  const [jdUrl,              setJdUrl]              = useState("");
+  const [jdUrlLoading,       setJdUrlLoading]       = useState(false);
+  const [jdUrlStatus,        setJdUrlStatus]        = useState(""); // "" | "success" | "error" | "linkedin"
   const fileRef = useRef();
   const jdFileRef = useRef();
 
@@ -953,8 +956,19 @@ Return ONLY the cover letter text. No JSON. No explanation. Just the letter.`,
     }
   }
 
-  async function generatePrepPlan() {
-    if (!daysUntilInterview) return;
+  async function generatePrepPlan({
+    customResume, customJD, customCompany, customJobTitle,
+    customDays, customHours, customAppId,
+  } = {}) {
+    const effectiveDays    = customDays    ?? daysUntilInterview;
+    const effectiveHours   = customHours   ?? hoursPerDay;
+    const effectiveResume  = customResume  ?? tailored;
+    const effectiveJD      = customJD      ?? jd;
+    const effectiveCompany = customCompany ?? companyName;
+    const effectiveTitle   = customJobTitle ?? jobTitle;
+    const effectiveAppId   = customAppId   ?? applicationId;
+
+    if (!effectiveDays) return;
     setPrepLoading(true);
     setPrepError("");
     // Declared outside try so catch block can access them
@@ -965,9 +979,9 @@ Return ONLY the cover letter text. No JSON. No explanation. Just the letter.`,
       let snippets = "";
       try {
         const searchQueries = [
-          `${companyName || jobTitle} interview process rounds questions`,
-          `${jobTitle} interview questions technical behavioral`,
-          `${companyName || jobTitle} company culture values hiring`,
+          `${effectiveCompany || effectiveTitle} interview process rounds questions`,
+          `${effectiveTitle} interview questions technical behavioral`,
+          `${effectiveCompany || effectiveTitle} company culture values hiring`,
         ];
         const searchResults = await Promise.allSettled(
           searchQueries.map(q =>
@@ -1019,12 +1033,12 @@ Be extremely concise:
 - Max 4 emergency tips
 
 CONTEXT:
-- Role: ${jobTitle || "the role"}
-- Company: ${companyName || "the company"}
-- Days until interview: ${daysUntilInterview}
-- Study hours per day: ${hoursPerDay}
-- Tailored resume: ${tailored.slice(0, 1200)}
-- Job description: ${jd.slice(0, 800)}
+- Role: ${effectiveTitle || "the role"}
+- Company: ${effectiveCompany || "the company"}
+- Days until interview: ${effectiveDays}
+- Study hours per day: ${effectiveHours}
+- Tailored resume: ${(effectiveResume || "").slice(0, 1200)}
+- Job description: ${(effectiveJD || "").slice(0, 800)}
 - Research snippets: ${snippets ? snippets.slice(0, 600) : "No web search results available. Base analysis on JD and resume only."}
 
 Return ONLY a JSON object. No markdown. No backticks.
@@ -1076,7 +1090,7 @@ Return ONLY a JSON object. No markdown. No backticks.
 }
 
 Rules:
-- daily_plan must have exactly ${daysUntilInterview} day entries, max 3 tasks each
+- daily_plan must have exactly ${effectiveDays} day entries, max 3 tasks each
 - question_bank sections: opening=3, domain=5, technical=5, sql_data=4, leadership_behavioral=5, vp_strategic=3, closing=2 (total ~27 questions)
 - Each question must be specific to the role and company, not generic
 - key_points: exactly 2 bullet points per question, each max 70 chars
@@ -1123,11 +1137,11 @@ For each gap or neutral item in readiness_assessment, add a note field with:
       setPrepPlan(plan);
 
       // Step 3: Persist to Supabase
-      if (applicationId) {
+      if (effectiveAppId) {
         await supabase.from("applications").update({
           prep_plan: plan,
-          days_until_interview: daysUntilInterview,
-        }).eq("id", applicationId);
+          days_until_interview: effectiveDays,
+        }).eq("id", effectiveAppId);
       }
     }  catch (e) {
       console.error('PrepCoach full error:', e)
@@ -1175,6 +1189,34 @@ For each gap or neutral item in readiness_assessment, add a note field with:
       setFileError("❌ Could not read this file. Please try copy-pasting your resume text.");
     } finally {
       setFileProcessing(false);
+    }
+  };
+
+  const fetchJdFromUrl = async () => {
+    const trimmed = jdUrl.trim();
+    if (!trimmed) return;
+    if (trimmed.includes("linkedin.com")) {
+      setJdUrlStatus("linkedin");
+      return;
+    }
+    setJdUrlLoading(true);
+    setJdUrlStatus("");
+    setJD("");
+    try {
+      const res = await fetch("/api/fetchjd", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url: trimmed }),
+      });
+      if (!res.ok) throw new Error("fetch failed");
+      const data = await res.json();
+      if (!data.text || !data.text.trim()) throw new Error("empty response");
+      setJD(data.text);
+      setJdUrlStatus("success");
+    } catch {
+      setJdUrlStatus("error");
+    } finally {
+      setJdUrlLoading(false);
     }
   };
 
@@ -1434,6 +1476,69 @@ For each gap or neutral item in readiness_assessment, add a note field with:
               <div style={{ width: 28, height: 28, background: theme.accent + "20", border: `1px solid ${theme.accent}50`, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🎯</div>
               <h2 style={{ fontSize: 18, fontWeight: 700, color: theme.textStrong }}>Job Description</h2>
             </div>
+            {/* URL Import */}
+            <div style={{ marginBottom: 14 }}>
+              <p style={{ fontSize: 12, color: theme.textMuted, fontFamily: "'DM Mono', monospace", marginBottom: 8, letterSpacing: "0.04em" }}>
+                🔗 Import from URL (LinkedIn, Indeed, etc.)
+              </p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type="url"
+                  value={jdUrl}
+                  onChange={e => { setJdUrl(e.target.value); setJdUrlStatus(""); }}
+                  onKeyDown={e => e.key === "Enter" && fetchJdFromUrl()}
+                  placeholder="Paste LinkedIn job URL or any job page URL…"
+                  style={{
+                    flex: 1, background: theme.inputBg, border: `1px solid ${theme.border}`,
+                    borderRadius: 8, padding: "10px 14px", color: theme.text, fontSize: 13,
+                    fontFamily: "'DM Mono', monospace",
+                  }}
+                />
+                <button
+                  onClick={fetchJdFromUrl}
+                  disabled={!jdUrl.trim() || jdUrlLoading}
+                  style={{
+                    background: jdUrl.trim() && !jdUrlLoading ? theme.accent : theme.border,
+                    color: jdUrl.trim() && !jdUrlLoading ? theme.background : theme.textFaint,
+                    border: "none", borderRadius: 8, padding: "10px 18px",
+                    fontSize: 14, fontWeight: 700, cursor: jdUrl.trim() && !jdUrlLoading ? "pointer" : "not-allowed",
+                    whiteSpace: "nowrap", transition: "all 0.15s",
+                  }}
+                >
+                  {jdUrlLoading ? "…" : "→"}
+                </button>
+              </div>
+              {/* Status messages */}
+              {jdUrlLoading && (
+                <p style={{ fontSize: 12, color: theme.textMuted, fontFamily: "'DM Mono', monospace", marginTop: 6 }}>
+                  Fetching job description…
+                </p>
+              )}
+              {jdUrlStatus === "success" && (
+                <p style={{ fontSize: 12, color: theme.accent, fontFamily: "'DM Mono', monospace", marginTop: 6 }}>
+                  ✅ JD imported — {jd.length.toLocaleString()} characters
+                </p>
+              )}
+              {jdUrlStatus === "error" && (
+                <p style={{ fontSize: 12, color: "#ef4444", fontFamily: "'DM Mono', monospace", marginTop: 6 }}>
+                  ❌ Could not fetch this URL. Please paste the JD text manually.
+                </p>
+              )}
+              {jdUrlStatus === "linkedin" && (
+                <div style={{ marginTop: 8, padding: "10px 14px", background: isDark ? "#1c1a0a" : "#fffbeb", border: "1px solid #d9770640", borderRadius: 8 }}>
+                  <p style={{ fontSize: 12, color: "#d97706", fontFamily: "'DM Mono', monospace", lineHeight: 1.6 }}>
+                    <strong>LinkedIn requires login</strong> — please copy and paste the job description text instead.<br />
+                    <span style={{ color: theme.textMuted }}>Tip: Click "Show more" on the job post first to expand the full description.</span>
+                  </p>
+                </div>
+              )}
+              {!jdUrlStatus && !jdUrlLoading && (
+                <p style={{ fontSize: 11, color: theme.textFaint, fontFamily: "'DM Mono', monospace", marginTop: 5 }}>
+                  Works with Indeed, company career pages and most job sites
+                </p>
+              )}
+            </div>
+
             <textarea value={jd} onChange={e => setJD(e.target.value)} placeholder="Paste the full job description here…" style={{ width: "100%", minHeight: 260, background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 16, color: theme.text, fontSize: 13, fontFamily: "'DM Mono', monospace", lineHeight: 1.8 }} />
             <div style={{ marginTop: 12 }}>
               <input ref={jdFileRef} type="file" accept=".txt,.pdf,.doc,.docx" onChange={handleJDFile} style={{ display: "none" }} />

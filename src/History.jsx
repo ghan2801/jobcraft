@@ -38,7 +38,7 @@ function getDateCutoff(filter) {
   }
 }
 
-const GRID = "2fr 2fr 80px 80px 110px 140px 160px 40px";
+const GRID = "200px 180px 60px 60px 100px 130px auto";
 
 export default function History({ session, onBack, onLogout }) {
   const { theme, isDark, toggleTheme } = useTheme();
@@ -46,6 +46,13 @@ export default function History({ session, onBack, onLogout }) {
   const [loading,    setLoading]    = useState(true);
   const [view,       setView]       = useState("active");   // "active" | "archived"
   const [timeFilter, setTimeFilter] = useState("all");
+
+  // Generate-prep-plan modal state
+  const [genModal,   setGenModal]   = useState(null);   // null | app object
+  const [genDays,    setGenDays]    = useState(null);
+  const [genHours,   setGenHours]   = useState(2);
+  const [genLoading, setGenLoading] = useState(false);
+  const [genError,   setGenError]   = useState("");
 
   useEffect(() => { fetchApps(); }, []);
 
@@ -210,6 +217,164 @@ export default function History({ session, onBack, onLogout }) {
     if (tab) { tab.document.write(html); tab.document.close(); }
   }
 
+  async function generatePrepPlanForApp() {
+    const app = genModal;
+    if (!app || !genDays) return;
+    setGenLoading(true);
+    setGenError("");
+
+    const truncateText = (text, max = 3000) => {
+      if (!text || text.length <= max) return text;
+      return text.slice(0, max) + "\n\n[Content truncated...]";
+    };
+
+    const resumeText = truncateText(app.tailored_resume || app.original_resume || "", 2000);
+    const jdText     = truncateText(app.job_description || "");
+    const company    = app.company_name || "";
+    const jobTitle   = app.job_title || "";
+
+    const controller  = new AbortController();
+    const timeoutId   = setTimeout(() => controller.abort(), 60000);
+
+    try {
+      // Web search for context (best-effort)
+      let snippets = "";
+      try {
+        const queries = [
+          `${company || jobTitle} interview process rounds questions`,
+          `${jobTitle} interview questions technical behavioral`,
+          `${company || jobTitle} company culture values hiring`,
+        ];
+        const results = await Promise.allSettled(
+          queries.map(q =>
+            fetch("/api/search", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ query: q }),
+            }).then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }))
+          )
+        );
+        snippets = results
+          .map(r => r.status === "fulfilled" ? r.value : { results: [] })
+          .flatMap(r => (r.results || []).slice(0, 3).map(s => s.snippet || s.description || ""))
+          .filter(Boolean).slice(0, 12).join("\n");
+      } catch { snippets = ""; }
+
+      const response = await fetch("/api/proxy", {
+        method: "POST",
+        signal: controller.signal,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 6000,
+          messages: [{
+            role: "user",
+            content: `You are an expert interview coach. Create a concise, personalised interview preparation plan.
+
+CRITICAL: Your entire response must be valid, complete JSON under 5000 tokens.
+Be extremely concise:
+- Each task description: max 80 characters
+- Each round description: max 80 characters
+- Each question: max 100 characters
+- Each answer_guide: max 120 characters
+- Each tip: max 80 characters
+- Each readiness note: max 80 characters
+- Max 3 tasks per day
+- Max 6 readiness items total
+- Max 4 emergency tips
+
+CONTEXT:
+- Role: ${jobTitle || "the role"}
+- Company: ${company || "the company"}
+- Days until interview: ${genDays}
+- Study hours per day: ${genHours}
+- Tailored resume: ${resumeText}
+- Job description: ${jdText}
+- Research snippets: ${snippets ? snippets.slice(0, 600) : "No web search results available. Base analysis on JD and resume only."}
+
+Return ONLY a JSON object. No markdown. No backticks.
+
+{
+  "interview_structure": {
+    "overview": "1-2 sentence overview (max 120 chars)",
+    "rounds": [
+      { "name": "round name", "description": "max 80 chars", "duration": "e.g. 45 min" }
+    ]
+  },
+  "readiness_assessment": {
+    "overall_verdict": "1-2 sentence honest assessment",
+    "items": [
+      { "label": "skill from JD (max 60 chars)", "level": "strong|neutral|gap", "note": "for neutral/gap: what is missing (max 80 chars)" }
+    ]
+  },
+  "daily_plan": [
+    {
+      "day": 1,
+      "theme": "short theme (max 40 chars)",
+      "tasks": ["actionable task (max 80 chars)", "actionable task (max 80 chars)", "actionable task (max 80 chars)"]
+    }
+  ],
+  "question_bank": {
+    "opening": [ { "question": "max 100 chars", "answer_guide": "max 120 chars", "key_points": ["max 70 chars", "max 70 chars"], "difficulty": "easy" } ],
+    "domain": [ { "question": "max 100 chars", "answer_guide": "max 120 chars", "key_points": ["max 70 chars", "max 70 chars"], "difficulty": "medium" } ],
+    "technical": [ { "question": "max 100 chars", "answer_guide": "max 120 chars", "key_points": ["max 70 chars", "max 70 chars"], "difficulty": "hard" } ],
+    "sql_data": [ { "question": "max 100 chars", "answer_guide": "max 120 chars", "key_points": ["max 70 chars", "max 70 chars"], "difficulty": "medium" } ],
+    "leadership_behavioral": [ { "question": "max 100 chars", "answer_guide": "max 120 chars", "key_points": ["max 70 chars", "max 70 chars"], "difficulty": "medium" } ],
+    "vp_strategic": [ { "question": "max 100 chars", "answer_guide": "max 120 chars", "key_points": ["max 70 chars", "max 70 chars"], "difficulty": "hard" } ],
+    "closing": [ { "question": "max 100 chars", "answer_guide": "max 120 chars", "key_points": ["max 70 chars", "max 70 chars"], "difficulty": "easy" } ]
+  },
+  "emergency_tips": ["concise tip (max 80 chars)"]
+}
+
+Rules:
+- daily_plan must have exactly ${genDays} day entries, max 3 tasks each
+- question_bank sections: opening=3, domain=5, technical=5, sql_data=4, leadership_behavioral=5, vp_strategic=3, closing=2
+- Each question must be specific to the role and company, not generic
+- key_points: exactly 2 bullet points per question
+- readiness_assessment.items: exactly 6 items drawn from the JD requirements
+- emergency_tips: exactly 4 tips
+- Tasks must be specific and actionable
+
+STRICT SKILL MATCHING RULES for readiness_assessment:
+- STRONG: exact tool explicitly in resume
+- NEUTRAL: transferable but NOT the exact tool (AWS ≠ Azure, SQL Server ≠ Synapse)
+- GAP: not mentioned at all
+- For each gap/neutral: add a note field explaining what is missing and realistic prep time`,
+          }],
+        }),
+      });
+      clearTimeout(timeoutId);
+
+      const data = await response.json();
+      const rawText = data.content.map(b => b.text || "").join("");
+      const cleaned = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
+      const plan = JSON.parse(cleaned);
+
+      // Persist to Supabase
+      await supabase.from("applications").update({
+        prep_plan: plan,
+        days_until_interview: genDays,
+      }).eq("id", app.id);
+
+      // Update local state so the row updates immediately
+      const updatedApp = { ...app, prep_plan: plan, days_until_interview: genDays };
+      setApps(prev => prev.map(a => a.id === app.id ? updatedApp : a));
+
+      // Close modal and open the plan
+      setGenModal(null);
+      setGenDays(null);
+      setGenHours(2);
+      openPrepPlan(updatedApp);
+    } catch (e) {
+      clearTimeout(timeoutId);
+      console.error("History generatePrepPlan error:", e);
+      if (e.name === "AbortError") setGenError("This is taking longer than usual. Please try again.");
+      else setGenError("Failed to generate plan: " + e.message);
+    } finally {
+      setGenLoading(false);
+    }
+  }
+
   // ── Derived lists ───────────────────────────────────────────────────────────
   const activeApps   = useMemo(() => apps.filter(a => !a.is_archived), [apps]);
   const archivedApps = useMemo(() => apps.filter(a =>  a.is_archived), [apps]);
@@ -248,6 +413,130 @@ export default function History({ session, onBack, onLogout }) {
 
   return (
     <div style={{ minHeight: "100vh", background: theme.background, fontFamily: "'Syne', sans-serif", color: theme.text, transition: "background 0.3s, color 0.3s" }}>
+
+      {/* ── Generate Prep Plan Modal ────────────────────────────────────────── */}
+      {genModal && (
+        <div
+          onClick={e => { if (e.target === e.currentTarget && !genLoading) { setGenModal(null); setGenError(""); } }}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 1000, padding: 24,
+          }}
+        >
+          <div style={{
+            background: theme.card, border: `1px solid ${theme.border}`,
+            borderRadius: 16, padding: 28, width: "100%", maxWidth: 420,
+            fontFamily: "'Syne', sans-serif",
+          }}>
+            {/* Modal header */}
+            <div style={{ marginBottom: 20 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800, color: theme.textStrong, marginBottom: 4 }}>
+                🎯 Generate Interview Prep Plan
+              </h3>
+              <p style={{ fontSize: 12, color: theme.textMuted, fontFamily: "'DM Mono', monospace" }}>
+                {genModal.job_title || "Role"}{genModal.company_name ? ` @ ${genModal.company_name}` : ""}
+              </p>
+            </div>
+
+            {/* Days selector */}
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: "block", fontSize: 11, color: theme.textMuted, fontFamily: "'DM Mono', monospace", marginBottom: 8, letterSpacing: "0.06em" }}>
+                DAYS UNTIL INTERVIEW
+              </label>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                {[1, 2, 3, 5, 7, 14].map(d => (
+                  <button
+                    key={d}
+                    onClick={() => setGenDays(d)}
+                    style={{
+                      width: 42, height: 42, borderRadius: 9,
+                      border: `1px solid ${genDays === d ? theme.accent : theme.border}`,
+                      background: genDays === d ? theme.accent + "20" : "transparent",
+                      color: genDays === d ? theme.accent : theme.textMuted,
+                      fontSize: 13, fontWeight: 700, cursor: "pointer",
+                      fontFamily: "'DM Mono', monospace", transition: "all 0.15s",
+                    }}
+                  >{d}</button>
+                ))}
+                <input
+                  type="number" min={1} max={60}
+                  value={genDays || ""}
+                  onChange={e => setGenDays(parseInt(e.target.value) || null)}
+                  placeholder="?"
+                  style={{
+                    width: 52, height: 42, borderRadius: 9,
+                    border: `1px solid ${theme.border}`, background: theme.inputBg,
+                    color: theme.text, fontSize: 13, textAlign: "center",
+                    fontFamily: "'DM Mono', monospace", padding: "0 6px",
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Hours selector */}
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: "block", fontSize: 11, color: theme.textMuted, fontFamily: "'DM Mono', monospace", marginBottom: 8, letterSpacing: "0.06em" }}>
+                STUDY HOURS PER DAY
+              </label>
+              <div style={{ display: "flex", gap: 8 }}>
+                {[1, 2, 3, 4].map(h => (
+                  <button
+                    key={h}
+                    onClick={() => setGenHours(h)}
+                    style={{
+                      width: 52, height: 42, borderRadius: 9,
+                      border: `1px solid ${genHours === h ? theme.accent : theme.border}`,
+                      background: genHours === h ? theme.accent + "20" : "transparent",
+                      color: genHours === h ? theme.accent : theme.textMuted,
+                      fontSize: 13, fontWeight: 700, cursor: "pointer",
+                      fontFamily: "'DM Mono', monospace", transition: "all 0.15s",
+                    }}
+                  >{h}h</button>
+                ))}
+              </div>
+            </div>
+
+            {genError && (
+              <p style={{ fontSize: 12, color: "#ef4444", fontFamily: "'DM Mono', monospace", marginBottom: 14 }}>
+                {genError}
+              </p>
+            )}
+
+            {/* Actions */}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={() => { setGenModal(null); setGenError(""); setGenDays(null); }}
+                disabled={genLoading}
+                style={{
+                  flex: 1, background: "transparent", border: `1px solid ${theme.border}`,
+                  color: theme.textMuted, borderRadius: 9, padding: "11px 0",
+                  fontSize: 13, cursor: genLoading ? "not-allowed" : "pointer",
+                  fontFamily: "'DM Mono', monospace", opacity: genLoading ? 0.5 : 1,
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={generatePrepPlanForApp}
+                disabled={!genDays || genLoading}
+                style={{
+                  flex: 2,
+                  background: genDays && !genLoading ? theme.accent : theme.border,
+                  color: genDays && !genLoading ? theme.background : theme.textFaint,
+                  border: "none", borderRadius: 9, padding: "11px 0",
+                  fontSize: 13, fontWeight: 700,
+                  cursor: genDays && !genLoading ? "pointer" : "not-allowed",
+                  fontFamily: "'Syne', sans-serif", transition: "all 0.15s",
+                }}
+              >
+                {genLoading ? "Generating…" : "Generate Plan →"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -261,6 +550,10 @@ export default function History({ session, onBack, onLogout }) {
         .status-sel:focus { outline: 2px solid ${theme.accent}40; outline-offset: 1px; }
         .pill-btn { transition: all 0.15s; }
         .time-sel { appearance: none; -webkit-appearance: none; cursor: pointer; }
+        .hist-actions { display: flex; flex-direction: row; gap: 6px; align-items: center; justify-content: flex-end; flex-wrap: nowrap; }
+        @media (max-width: 700px) {
+          .hist-actions { flex-direction: column; align-items: flex-end; }
+        }
       `}</style>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
@@ -436,7 +729,7 @@ export default function History({ session, onBack, onLogout }) {
                   background: theme.cardAlt,
                   borderBottom: `1px solid ${theme.border}`,
                 }}>
-                  {["Company", "Job Title", "Before", "After", "Date", "Status", "", ""].map((h, i) => (
+                  {["Company", "Job Title", "Before", "After", "Date", "Status", "Actions"].map((h, i) => (
                     <span key={i} style={{ fontSize: 10, color: theme.textFaint, fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em", textTransform: "uppercase" }}>
                       {h}
                     </span>
@@ -460,10 +753,10 @@ export default function History({ session, onBack, onLogout }) {
                         transition: "background 0.15s",
                       }}
                     >
-                      <span style={{ fontSize: 13, color: theme.text, fontWeight: 600, paddingRight: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <span style={{ fontSize: 13, color: theme.text, fontWeight: 600, paddingRight: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
                         {app.company_name || "—"}
                       </span>
-                      <span style={{ fontSize: 12, color: theme.textMuted, paddingRight: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <span style={{ fontSize: 12, color: theme.textMuted, paddingRight: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
                         {app.job_title || "—"}
                       </span>
                       <span style={{ fontSize: 13, fontFamily: "'DM Mono', monospace", color: "#FF6B6B", fontWeight: 700 }}>
@@ -490,7 +783,8 @@ export default function History({ session, onBack, onLogout }) {
                           fontSize: 11,
                           fontFamily: "'DM Mono', monospace",
                           fontWeight: 600,
-                          width: "132px",
+                          width: "100%",
+                          maxWidth: 130,
                         }}
                       >
                         {STATUS_OPTIONS.map(s => (
@@ -498,22 +792,22 @@ export default function History({ session, onBack, onLogout }) {
                         ))}
                       </select>
 
-                      {/* View Resume + Prep Plan buttons */}
-                      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
+                      {/* Actions column: View PDF + Prep + Archive */}
+                      <div className="hist-actions">
                         <button
                           className="view-btn"
                           onClick={() => openResume(app.tailored_resume)}
                           style={{
                             background: theme.accent + "18", color: theme.accent,
                             border: `1px solid ${theme.accent}40`, borderRadius: 7,
-                            padding: "5px 10px", fontSize: 11, fontWeight: 600,
+                            padding: "6px 10px", fontSize: 12, fontWeight: 600,
                             cursor: "pointer", fontFamily: "'DM Mono', monospace",
                             transition: "opacity 0.15s", whiteSpace: "nowrap",
                           }}
                         >
                           View PDF
                         </button>
-                        {app.prep_plan && (
+                        {app.prep_plan ? (
                           <button
                             className="view-btn"
                             title="View prep plan"
@@ -521,31 +815,39 @@ export default function History({ session, onBack, onLogout }) {
                             style={{
                               background: "#22c55e18", color: "#22c55e",
                               border: "1px solid #22c55e40", borderRadius: 7,
-                              padding: "5px 8px", fontSize: 11, fontWeight: 600,
+                              padding: "6px 10px", fontSize: 12, fontWeight: 600,
                               cursor: "pointer", fontFamily: "'DM Mono', monospace",
                               transition: "opacity 0.15s", whiteSpace: "nowrap",
                             }}
                           >
-                            📋 Prep
+                            🎯 View Prep
+                          </button>
+                        ) : (
+                          <button
+                            className="view-btn"
+                            title="Generate prep plan"
+                            onClick={() => { setGenModal(app); setGenDays(null); setGenHours(2); setGenError(""); }}
+                            style={{
+                              background: "transparent", color: theme.accent,
+                              border: `1px solid ${theme.accent}50`, borderRadius: 7,
+                              padding: "6px 10px", fontSize: 12, fontWeight: 600,
+                              cursor: "pointer", fontFamily: "'DM Mono', monospace",
+                              transition: "opacity 0.15s", whiteSpace: "nowrap",
+                            }}
+                          >
+                            🎯 Gen Prep
                           </button>
                         )}
-                      </div>
-
-                      {/* Archive / Unarchive button */}
-                      <div style={{ display: "flex", justifyContent: "center" }}>
                         <button
                           className="arch-btn"
                           title={app.is_archived ? "Unarchive" : "Archive"}
                           onClick={() => archiveApp(app.id, !app.is_archived)}
                           style={{
-                            background: "transparent",
-                            border: "none",
-                            fontSize: 16,
-                            cursor: "pointer",
-                            padding: "2px 4px",
-                            lineHeight: 1,
-                            opacity: 0.55,
-                            transition: "opacity 0.15s",
+                            background: "transparent", border: "none",
+                            fontSize: 16, cursor: "pointer",
+                            padding: "4px 6px", lineHeight: 1,
+                            opacity: 0.55, transition: "opacity 0.15s",
+                            flexShrink: 0,
                           }}
                         >
                           {app.is_archived ? "📂" : "📦"}

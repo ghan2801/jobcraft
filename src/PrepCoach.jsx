@@ -680,22 +680,41 @@ Let's start — ask me the first question.`;
             🧠 Want dynamic coaching?
           </p>
           <p style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'DM Mono', monospace", lineHeight: 1.5 }}>
-            Copy a ready-made prompt and paste it into Claude.ai for a live mock interview session.
+            Open a live mock interview session in Claude.ai, pre-loaded with your context.
           </p>
         </div>
-        <button
-          onClick={copyCoachingPrompt}
-          style={{
-            background: copiedPrompt ? "#16a34a20" : theme.card,
-            color: copiedPrompt ? "#16a34a" : theme.textStrong,
-            border: `1px solid ${copiedPrompt ? "#16a34a50" : theme.border}`,
-            borderRadius: 8, padding: "9px 16px", fontSize: 12, fontWeight: 700,
-            cursor: "pointer", fontFamily: "'DM Mono', monospace",
-            whiteSpace: "nowrap", transition: "all 0.2s", flexShrink: 0,
-          }}
-        >
-          {copiedPrompt ? "Copied! ✓" : "📋 Copy Coaching Prompt"}
-        </button>
+        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          <button
+            onClick={() => {
+              const coachingPrompt = buildCoachingPrompt();
+              const encodedPrompt = encodeURIComponent(coachingPrompt);
+              const claudeUrl = `https://claude.ai/new?q=${encodedPrompt}`;
+              window.open(claudeUrl, "_blank");
+            }}
+            style={{
+              background: "#16a34a", color: "#fff",
+              border: "none", borderRadius: 8, padding: "9px 16px",
+              fontSize: 12, fontWeight: 700, cursor: "pointer",
+              fontFamily: "'DM Mono', monospace", whiteSpace: "nowrap",
+              transition: "all 0.2s",
+            }}
+          >
+            🧠 Open in Claude →
+          </button>
+          <button
+            onClick={copyCoachingPrompt}
+            style={{
+              background: "transparent",
+              color: copiedPrompt ? "#16a34a" : theme.textMuted,
+              border: `1px solid ${copiedPrompt ? "#16a34a50" : theme.border}`,
+              borderRadius: 8, padding: "9px 14px", fontSize: 12, fontWeight: 600,
+              cursor: "pointer", fontFamily: "'DM Mono', monospace",
+              whiteSpace: "nowrap", transition: "all 0.2s",
+            }}
+          >
+            {copiedPrompt ? "Copied! ✓" : "📋 Copy Prompt"}
+          </button>
+        </div>
       </div>
 
       {/* Emergency Tips — shown at top when ≤ 3 days */}

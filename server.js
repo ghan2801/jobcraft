@@ -49,4 +49,33 @@ app.post('/api/search', async (req, res) => {
   }
 })
 
+app.post('/api/fetchjd', async (req, res) => {
+    try {
+      const { url } = req.body
+      if (!url || !url.startsWith('http')) {
+        return res.status(400).json({ error: 'Invalid URL' })
+      }
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; JobCraft/1.0)',
+          'Accept': 'text/html,application/xhtml+xml',
+        }
+      })
+      const html = await response.text()
+      const cleaned = html
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
+        .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
+        .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+      const text = cleaned.slice(0, 6000)
+      res.status(200).json({ text })
+    } catch (error) {
+      res.status(500).json({ error: 'Failed: ' + error.message })
+    }
+  })
+
 app.listen(3000, () => console.log('Proxy running on port 3000'))
