@@ -320,6 +320,192 @@ function DayCard({ day, isFirst, checked, onCheck }) {
   );
 }
 
+// ── Gap Resource Card ────────────────────────────────────────────────────────
+
+function GapResourceCard({ resource, isDark, theme }) {
+  const [stepsDone, setStepsDone] = useState({});
+  const toggleStep = i => setStepsDone(prev => ({ ...prev, [i]: !prev[i] }));
+
+  const mp = resource.mini_project || {};
+  const story = resource.interview_story || {};
+
+  return (
+    <div style={{
+      border: `1px solid #ef444430`,
+      borderLeft: "3px solid #ef4444",
+      borderRadius: 10,
+      overflow: "hidden",
+      marginBottom: 14,
+      background: isDark ? "#1a0a0a" : "#fef2f2",
+    }}>
+      {/* Card header */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "12px 16px",
+        borderBottom: `1px solid #ef444420`,
+      }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: theme.textStrong, fontFamily: "'Syne', sans-serif" }}>
+          🎯 {resource.skill}
+        </span>
+        <span style={{
+          fontSize: 10, background: "#ef444418", color: "#ef4444",
+          border: "1px solid #ef444440", borderRadius: 5,
+          padding: "2px 8px", fontFamily: "'DM Mono', monospace", fontWeight: 700,
+          textTransform: "uppercase",
+        }}>
+          {resource.importance === "gap" ? "Gap" : resource.importance || "Gap"}
+        </span>
+      </div>
+
+      {/* Video section */}
+      <div style={{ padding: "12px 16px", borderBottom: `1px solid #ef444415` }}>
+        <p style={{ fontSize: 10, color: "#ef444490", fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+          📺 Watch First
+        </p>
+        {resource.video ? (
+          <a
+            href={resource.video.link || resource.video.url || "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              fontSize: 13, color: theme.accent, fontFamily: "'DM Mono', monospace",
+              lineHeight: 1.5, textDecoration: "underline", display: "block",
+              wordBreak: "break-word",
+            }}
+          >
+            {resource.video.title || resource.video.link || "Watch tutorial"}
+          </a>
+        ) : (
+          <p style={{ fontSize: 12, color: theme.textMuted, fontFamily: "'DM Mono', monospace", lineHeight: 1.6 }}>
+            Search <em style={{ color: theme.textStrong }}>"{resource.skill} tutorial for analysts"</em> on YouTube
+          </p>
+        )}
+      </div>
+
+      {/* Mini project section */}
+      <div style={{ padding: "12px 16px", borderBottom: `1px solid #ef444415` }}>
+        <p style={{ fontSize: 10, color: "#ef444490", fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+          🛠️ Build This{mp.time_needed ? ` (${mp.time_needed})` : ""}
+        </p>
+        {mp.title && (
+          <p style={{ fontSize: 13, fontWeight: 700, color: theme.textStrong, fontFamily: "'Syne', sans-serif", marginBottom: 6 }}>
+            {mp.title}
+          </p>
+        )}
+        {mp.description && (
+          <p style={{ fontSize: 12, color: theme.textMuted, fontFamily: "'DM Mono', monospace", lineHeight: 1.6, marginBottom: 10 }}>
+            {mp.description}
+          </p>
+        )}
+        {(mp.steps || []).length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+            {mp.steps.map((step, i) => (
+              <label
+                key={i}
+                style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer" }}
+              >
+                <input
+                  type="checkbox"
+                  checked={!!stepsDone[i]}
+                  onChange={() => toggleStep(i)}
+                  style={{ marginTop: 2, accentColor: theme.accent, flexShrink: 0 }}
+                />
+                <span style={{
+                  fontSize: 12, fontFamily: "'DM Mono', monospace", lineHeight: 1.5,
+                  color: stepsDone[i] ? theme.textFaint : theme.text,
+                  textDecoration: stepsDone[i] ? "line-through" : "none",
+                }}>
+                  {step}
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
+        {mp.outcome && (
+          <div style={{ padding: "8px 12px", background: isDark ? "#ffffff08" : "#00000006", borderRadius: 6 }}>
+            <p style={{ fontSize: 10, color: theme.textFaint, fontFamily: "'DM Mono', monospace", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4 }}>
+              After this you can say in interview:
+            </p>
+            <p style={{ fontSize: 12, color: theme.textMuted, fontFamily: "'DM Mono', monospace", lineHeight: 1.6, fontStyle: "italic" }}>
+              "{mp.outcome}"
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Interview story section */}
+      <div style={{ padding: "12px 16px" }}>
+        <p style={{ fontSize: 10, color: "#ef444490", fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+          💬 What To Say In Interview
+        </p>
+        {story.what_to_say && (
+          <p style={{ fontSize: 13, color: theme.text, fontFamily: "'DM Mono', monospace", lineHeight: 1.7, fontStyle: "italic", marginBottom: story.key_phrase ? 10 : 0 }}>
+            {story.what_to_say}
+          </p>
+        )}
+        {story.key_phrase && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+            <span style={{ fontSize: 10, color: theme.textFaint, fontFamily: "'DM Mono', monospace", textTransform: "uppercase", letterSpacing: "0.06em", flexShrink: 0 }}>Key phrase:</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: theme.accent, fontFamily: "'DM Mono', monospace" }}>
+              "{story.key_phrase}"
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Gap Resources Section ─────────────────────────────────────────────────────
+
+function GapResourcesSection({ gapResources, gapResourcesLoading, theme, isDark }) {
+  if (!gapResourcesLoading && (!gapResources || gapResources.length === 0)) return null;
+
+  return (
+    <Section title="Gap Learning Resources" emoji="📚">
+      {gapResourcesLoading ? (
+        // Skeleton loading state
+        <div>
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8, marginBottom: 16,
+            padding: "10px 14px", background: isDark ? "#ffffff06" : "#00000006",
+            borderRadius: 8,
+          }}>
+            <span style={{ fontSize: 13, animation: "spin 1.5s linear infinite", display: "inline-block" }}>⟳</span>
+            <span style={{ fontSize: 12, color: theme.textMuted, fontFamily: "'DM Mono', monospace" }}>
+              Finding best resources for your gaps…
+            </span>
+          </div>
+          {[0, 1, 2].map(i => (
+            <div key={i} style={{
+              border: `1px solid ${theme.border}`, borderLeft: "3px solid #ef444430",
+              borderRadius: 10, overflow: "hidden", marginBottom: 14,
+              background: isDark ? "#1a0a0a" : "#fef2f2",
+            }}>
+              <div style={{ padding: "12px 16px", borderBottom: `1px solid ${theme.border}` }}>
+                <div style={{
+                  height: 14, width: "60%", borderRadius: 4,
+                  background: isDark ? "#ffffff10" : "#00000010",
+                  animation: "pulse 1.5s ease-in-out infinite",
+                }} />
+              </div>
+              <div style={{ padding: "12px 16px" }}>
+                <div style={{ height: 12, width: "80%", borderRadius: 4, background: isDark ? "#ffffff08" : "#00000008", marginBottom: 8 }} />
+                <div style={{ height: 12, width: "50%", borderRadius: 4, background: isDark ? "#ffffff08" : "#00000008" }} />
+              </div>
+            </div>
+          ))}
+          <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style>
+        </div>
+      ) : (
+        gapResources.slice(0, 3).map((resource, i) => (
+          <GapResourceCard key={i} resource={resource} isDark={isDark} theme={theme} />
+        ))
+      )}
+    </Section>
+  );
+}
+
 const SECTION_META = {
   opening:              { label: "Opening",              emoji: "👋" },
   domain:               { label: "Domain Knowledge",     emoji: "🏦" },
@@ -475,6 +661,8 @@ export default function PrepCoach({
   companyName,
   resume,
   jd,
+  gapResources = [],
+  gapResourcesLoading = false,
 }) {
   const { theme, isDark } = useTheme();
   const [checked,      setChecked]      = useState({});
@@ -777,7 +965,15 @@ Let's start — ask me the first question.`;
         </Section>
       )}
 
-      {/* 3. Day-by-Day Plan */}
+      {/* 3. Gap Learning Resources */}
+      <GapResourcesSection
+        gapResources={gapResources}
+        gapResourcesLoading={gapResourcesLoading}
+        theme={theme}
+        isDark={isDark}
+      />
+
+      {/* 4. Day-by-Day Plan */}
       {daily_plan && daily_plan.length > 0 && (
         <Section title={`Day-by-Day Plan (${daily_plan.length} days)`} emoji="📅" defaultOpen>
           {daily_plan.map((day, i) => (
@@ -792,7 +988,7 @@ Let's start — ask me the first question.`;
         </Section>
       )}
 
-      {/* 4. Question Bank */}
+      {/* 5. Question Bank */}
       {question_bank && Object.keys(question_bank).length > 0 && (
         <QuestionBank
           question_bank={question_bank}
@@ -802,7 +998,7 @@ Let's start — ask me the first question.`;
         />
       )}
 
-      {/* 5. Emergency Tips — also shown at bottom as a section if > 3 days */}
+      {/* 6. Emergency Tips — also shown at bottom as a section if > 3 days */}
       {!isEmergency && emergency_tips && emergency_tips.length > 0 && (
         <Section title="Emergency Tips" emoji="🚨">
           <ul style={{ margin: 0, paddingLeft: 18 }}>

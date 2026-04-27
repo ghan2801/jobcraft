@@ -440,6 +440,8 @@ function JobCraft({ session, onLogout, onShowHistory, onShowProfile }) {
   const [daysUntilInterview, setDaysUntilInterview] = useState(null);
   const [hoursPerDay,        setHoursPerDay]        = useState(2);
   const [prepSearchResults,  setPrepSearchResults]  = useState([]);
+  const [gapResources,       setGapResources]       = useState([]);
+  const [gapResourcesLoading, setGapResourcesLoading] = useState(false);
   const [fileProcessing,     setFileProcessing]     = useState(false);
   const [fileError,          setFileError]          = useState("");
   const [jdFileProcessing,   setJdFileProcessing]   = useState(false);
@@ -956,6 +958,109 @@ Return ONLY the cover letter text. No JSON. No explanation. Just the letter.`,
     }
   }
 
+  async function fetchWithTimeout(url, options, ms = 30000) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), ms);
+    try {
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(id);
+      return response;
+    } catch (e) {
+      clearTimeout(id);
+      if (e.name === "AbortError") throw new Error("Request timed out");
+      throw e;
+    }
+  }
+
+  async function generateGapResources(gaps, resumeText, jdText, company, title) {
+    const gapResources = await Promise.all(
+      gaps.slice(0, 3).map(async (gap) => {
+        // Search YouTube for tutorial
+        let videoResult = null;
+        try {
+          const searchRes = await fetchWithTimeout("/api/search", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              query: `${gap.label || gap.skill} tutorial for data analysts beginners 2024 site:youtube.com`,
+            }),
+          }, 10000);
+          const searchData = await searchRes.json();
+          videoResult = searchData.results?.[0] || null;
+        } catch (e) {
+          console.log("Search failed for gap:", gap.label || gap.skill);
+        }
+
+        // Generate mini project + interview story via Claude
+        let resource = {};
+        try {
+          const claudeRes = await fetchWithTimeout("/api/proxy", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              model: "claude-haiku-4-5-20251001",
+              max_tokens: 1000,
+              messages: [{
+                role: "user",
+                content: `You are an interview coach.
+
+SKILL GAP: ${gap.label || gap.skill}
+CANDIDATE BACKGROUND: ${(resumeText || "").slice(0, 1000)}
+TARGET ROLE: ${title || "the role"} at ${company || "the company"}
+JD CONTEXT: ${(jdText || "").slice(0, 500)}
+
+Generate a JSON response (no markdown):
+{
+  "mini_project": {
+    "title": "project name under 60 chars",
+    "description": "what to build in 2-3 sentences",
+    "steps": ["Step 1: specific action (under 80 chars)", "Step 2: specific action", "Step 3: specific action", "Step 4: specific action"],
+    "time_needed": "e.g. 3-4 hours",
+    "outcome": "what you can say in interview after doing this"
+  },
+  "interview_story": {
+    "setup": "one sentence connecting gap skill to candidate background",
+    "what_to_say": "2-3 sentences candidate can say in interview about this skill. Should sound natural, connect to their real experience, and show learning mindset.",
+    "key_phrase": "one memorable phrase under 15 words"
+  }
+}`,
+              }],
+            }),
+          }, 25000);
+          const claudeData = await claudeRes.json();
+          const text = claudeData.content.map(b => b.text || "").join("");
+          const clean = text.replace(/```json|```/g, "").trim();
+          resource = JSON.parse(clean);
+        } catch (e) {
+          const skillName = gap.label || gap.skill || "this skill";
+          resource = {
+            mini_project: {
+              title: `Learn ${skillName}`,
+              description: "Practice the fundamentals through a hands-on exercise.",
+              steps: ["Research the topic online", "Follow an official tutorial", "Build a small example project", "Document what you learned"],
+              time_needed: "2-3 hours",
+              outcome: `Basic working knowledge of ${skillName} to discuss in interview`,
+            },
+            interview_story: {
+              setup: "",
+              what_to_say: `While I haven't worked directly with ${skillName}, my experience with similar technologies means I can adapt quickly and get up to speed.`,
+              key_phrase: "Strong foundation, fast learner",
+            },
+          };
+        }
+
+        return {
+          skill: gap.label || gap.skill,
+          importance: gap.importance || gap.level,
+          video: videoResult,
+          mini_project: resource.mini_project,
+          interview_story: resource.interview_story,
+        };
+      })
+    );
+    return gapResources;
+  }
+
   async function generatePrepPlan({
     customResume, customJD, customCompany, customJobTitle,
     customDays, customHours, customAppId,
@@ -971,11 +1076,8 @@ Return ONLY the cover letter text. No JSON. No explanation. Just the letter.`,
     if (!effectiveDays) return;
     setPrepLoading(true);
     setPrepError("");
-    // Declared outside try so catch block can access them
-    const prepController = new AbortController();
-    const prepTimeoutId = setTimeout(() => prepController.abort(), 55000);
     try {
-      // Step 1: 3 parallel web searches for company/role context (best-effort)
+      // Step 1: 3 parallel web searches for company/role context (best-effort, 10s each)
       let snippets = "";
       try {
         const searchQueries = [
@@ -985,11 +1087,11 @@ Return ONLY the cover letter text. No JSON. No explanation. Just the letter.`,
         ];
         const searchResults = await Promise.allSettled(
           searchQueries.map(q =>
-            fetch("/api/search", {
+            fetchWithTimeout("/api/search", {
               method: "POST",
               headers: { "content-type": "application/json" },
               body: JSON.stringify({ query: q }),
-            }).then(r => {
+            }, 10000).then(r => {
               if (!r.ok) throw new Error(`Search returned ${r.status}`);
               return r.json();
             }).catch(() => ({ results: [] }))
@@ -1007,10 +1109,9 @@ Return ONLY the cover letter text. No JSON. No explanation. Just the letter.`,
       }
       setPrepSearchResults(snippets);
 
-      // Step 2: Claude generates the full prep plan
-      const response = await fetch("/api/proxy", {
+      // Step 2: Claude generates the full prep plan (55s timeout)
+      const response = await fetchWithTimeout("/api/proxy", {
         method: "POST",
-        signal: prepController.signal,
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
@@ -1121,8 +1222,7 @@ For each gap or neutral item in readiness_assessment, add a note field with:
 - Realistic prep time given the difference`,
           }],
         }),
-      });
-      clearTimeout(prepTimeoutId);
+      }, 55000);
       const data = await response.json();
       const rawText = data.content.map(b => b.text || "").join("");
       const cleaned = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
@@ -1136,17 +1236,31 @@ For each gap or neutral item in readiness_assessment, add a note field with:
       }
       setPrepPlan(plan);
 
-      // Step 3: Persist to Supabase
+      // Step 3: Generate resources for gap items (best-effort, non-blocking)
+      const gapItems = (plan.readiness_assessment?.items || [])
+        .filter(item => item.level === "gap" || item.level === "neutral");
+      if (gapItems.length > 0) {
+        setGapResourcesLoading(true);
+        generateGapResources(gapItems, effectiveResume, effectiveJD, effectiveCompany, effectiveTitle)
+          .then(resources => setGapResources(resources))
+          .catch(e => console.error("Gap resources failed:", e))
+          .finally(() => setGapResourcesLoading(false));
+      }
+
+      // Step 4: Persist to Supabase
       if (effectiveAppId) {
         await supabase.from("applications").update({
           prep_plan: plan,
           days_until_interview: effectiveDays,
         }).eq("id", effectiveAppId);
       }
-    }  catch (e) {
-      console.error('PrepCoach full error:', e)
-      console.error('PrepCoach error message:', e.message)
-      setPrepError('Failed: ' + e.message)
+    } catch (e) {
+      console.error("PrepCoach full error:", e);
+      if (e.message === "Request timed out") {
+        setPrepError("This is taking longer than usual. Please try again.");
+      } else {
+        setPrepError("Failed: " + e.message);
+      }
     } finally {
       setPrepLoading(false);
     }
@@ -1299,6 +1413,8 @@ For each gap or neutral item in readiness_assessment, add a note field with:
             setDaysUntilInterview(null);
             setHoursPerDay(2);
             setPrepSearchResults([]);
+            setGapResources([]);
+            setGapResourcesLoading(false);
           }}
         >
           <div style={{ width: 32, height: 32, background: theme.accent, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⚡</div>
@@ -1807,6 +1923,8 @@ For each gap or neutral item in readiness_assessment, add a note field with:
                     companyName={companyName}
                     resume={resume}
                     jd={jd}
+                    gapResources={gapResources}
+                    gapResourcesLoading={gapResourcesLoading}
                   />
                 )}
 
