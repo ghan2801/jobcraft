@@ -167,7 +167,7 @@ export default function Profile({ session, onBack, onLogout }) {
       </div>
 
       {/* Body */}
-      <div style={{ maxWidth: 720, margin: "0 auto", padding: "48px 24px" }}>
+      <div style={{ maxWidth: 960, margin: "0 auto", padding: "48px 40px" }}>
         <div style={{ marginBottom: 32 }}>
           <h1 style={{ fontSize: 28, fontWeight: 800, color: theme.textStrong, letterSpacing: "-0.02em", marginBottom: 6 }}>My Profile</h1>
           <p style={{ color: theme.textMuted, fontSize: 14, lineHeight: 1.6 }}>

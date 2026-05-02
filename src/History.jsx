@@ -48,11 +48,12 @@ export default function History({ session, onBack, onLogout }) {
   const [timeFilter, setTimeFilter] = useState("all");
 
   // Generate-prep-plan modal state
-  const [genModal,   setGenModal]   = useState(null);   // null | app object
-  const [genDays,    setGenDays]    = useState(null);
-  const [genHours,   setGenHours]   = useState(2);
-  const [genLoading, setGenLoading] = useState(false);
-  const [genError,   setGenError]   = useState("");
+  const [genModal,      setGenModal]      = useState(null);   // null | app object
+  const [genDays,       setGenDays]       = useState(null);
+  const [genHours,      setGenHours]      = useState(2);
+  const [genError,      setGenError]      = useState("");
+  const [generatingId,  setGeneratingId]  = useState(null);   // app id being generated
+  const [successToast,  setSuccessToast]  = useState("");     // "" or message
 
   useEffect(() => { fetchApps(); }, []);
 
@@ -87,38 +88,43 @@ export default function History({ session, onBack, onLogout }) {
   function openPrepPlan(app) {
     const plan = app.prep_plan;
     if (!plan) return;
-    const { interview_structure, readiness_assessment, daily_plan, top_questions, emergency_tips } = plan;
+    const { interview_structure, readiness_assessment, daily_plan, question_bank, top_questions, emergency_tips } = plan;
 
     const esc = s => String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
     const readinessColor = level =>
-      level === "strong" ? "#22c55e" : level === "gap" ? "#ef4444" : "#f59e0b";
+      level === "strong" ? "#16a34a" : level === "gap" ? "#dc2626" : "#d97706";
     const readinessLabel = level =>
-      level === "strong" ? "✅ Strong" : level === "gap" ? "🔴 Gap" : "⚠️ Neutral";
+      level === "strong" ? "✅ Strong" : level === "gap" ? "Gap" : "Neutral";
 
+    // ── Section builders ────────────────────────────────────────────────────
     const structureHTML = interview_structure ? `
       <section>
-        <h2>🗂️ Interview Structure</h2>
+        <div class="section-header"><span class="section-icon">🗂️</span><h2>Interview Structure</h2></div>
         ${interview_structure.overview ? `<p class="verdict">${esc(interview_structure.overview)}</p>` : ""}
-        ${(interview_structure.rounds || []).map((r, i) => `
-          <div class="round">
-            <div class="round-num">${i + 1}</div>
-            <div>
-              <strong>${esc(r.name)}</strong>${r.duration ? ` <span class="muted"> · ${esc(r.duration)}</span>` : ""}
-              <p class="muted">${esc(r.description)}</p>
-            </div>
-          </div>`).join("")}
+        <div class="rounds">
+          ${(interview_structure.rounds || []).map((r, i) => `
+            <div class="round">
+              <div class="round-num">${i + 1}</div>
+              <div class="round-body">
+                <span class="round-name">${esc(r.name)}</span>${r.duration ? `<span class="chip">${esc(r.duration)}</span>` : ""}
+                <p class="muted">${esc(r.description)}</p>
+              </div>
+            </div>`).join("")}
+        </div>
       </section>` : "";
 
     const readinessHTML = readiness_assessment ? `
       <section>
-        <h2>📊 Readiness Assessment</h2>
+        <div class="section-header"><span class="section-icon">📊</span><h2>Readiness Assessment</h2></div>
         ${readiness_assessment.overall_verdict ? `<p class="verdict">${esc(readiness_assessment.overall_verdict)}</p>` : ""}
         <div class="items">
           ${(readiness_assessment.items || []).map(item => `
             <div class="item">
-              <span class="item-label">${esc(item.label)}</span>
-              <span class="badge" style="color:${readinessColor(item.level)};border-color:${readinessColor(item.level)}40;background:${readinessColor(item.level)}15">${readinessLabel(item.level)}</span>
+              <div class="item-row">
+                <span class="item-label">${esc(item.label)}</span>
+                <span class="badge" style="color:${readinessColor(item.level)};border-color:${readinessColor(item.level)}40;background:${readinessColor(item.level)}12">${readinessLabel(item.level)}</span>
+              </div>
               ${item.note && item.level !== "strong" ? `<p class="item-note">${esc(item.note)}</p>` : ""}
             </div>`).join("")}
         </div>
@@ -126,25 +132,61 @@ export default function History({ session, onBack, onLogout }) {
 
     const dailyHTML = (daily_plan || []).length ? `
       <section>
-        <h2>📅 Day-by-Day Plan</h2>
-        ${daily_plan.map(day => `
-          <div class="day-card">
-            <div class="day-header"><span class="day-num">Day ${day.day}</span> ${esc(day.theme)}</div>
-            <ul>
-              ${(day.tasks || []).map(t => `<li><label><input type="checkbox"> ${esc(t)}</label></li>`).join("")}
-            </ul>
-          </div>`).join("")}
+        <div class="section-header"><span class="section-icon">📅</span><h2>Day-by-Day Plan</h2></div>
+        <div class="day-grid">
+          ${daily_plan.map(day => `
+            <div class="day-card">
+              <div class="day-header"><span class="day-num">Day ${day.day}</span><span class="day-theme">${esc(day.theme)}</span></div>
+              <ul class="task-list">
+                ${(day.tasks || []).map(t => `<li><label class="task-label"><input type="checkbox" class="task-cb"> <span>${esc(t)}</span></label></li>`).join("")}
+              </ul>
+            </div>`).join("")}
+        </div>
       </section>` : "";
 
-    const questionsHTML = (top_questions || []).length ? `
+    // question_bank (new format) or top_questions (legacy)
+    const QBANK_META = {
+      opening:               { label: "Opening",               emoji: "👋" },
+      domain:                { label: "Domain Knowledge",      emoji: "🏦" },
+      technical:             { label: "Technical",             emoji: "⚙️" },
+      sql_data:              { label: "SQL & Data",            emoji: "🗄️" },
+      leadership_behavioral: { label: "Leadership & Behavioral",emoji: "🤝" },
+      vp_strategic:          { label: "Strategic / VP-Level",  emoji: "📈" },
+      closing:               { label: "Closing",               emoji: "🎯" },
+    };
+    const DIFF_COLOR = { easy: "#16a34a", medium: "#d97706", hard: "#dc2626" };
+
+    const questionsHTML = question_bank && Object.keys(question_bank).length ? `
       <section>
-        <h2>💬 Top Interview Questions</h2>
+        <div class="section-header"><span class="section-icon">💬</span><h2>Interview Question Bank</h2></div>
+        ${Object.entries(question_bank).map(([key, qs]) => {
+          if (!qs || !qs.length) return "";
+          const meta = QBANK_META[key] || { label: key, emoji: "❓" };
+          return `
+            <div class="qbank-section">
+              <div class="qbank-heading">${meta.emoji} ${meta.label} <span class="qbank-count">${qs.length} questions</span></div>
+              ${qs.map((q, i) => `
+                <div class="question">
+                  <div class="q-top">
+                    <span class="q-num">${i + 1}</span>
+                    <strong class="q-text">${esc(q.question)}</strong>
+                    ${q.difficulty ? `<span class="diff-badge" style="color:${DIFF_COLOR[q.difficulty]||"#888"};border-color:${DIFF_COLOR[q.difficulty]||"#888"}40;background:${DIFF_COLOR[q.difficulty]||"#888"}12">${esc(q.difficulty)}</span>` : ""}
+                  </div>
+                  ${q.answer_guide ? `<p class="answer-guide">💡 ${esc(q.answer_guide)}</p>` : ""}
+                  ${(q.key_points||[]).length ? `<ul class="key-points">${q.key_points.map(p=>`<li>${esc(p)}</li>`).join("")}</ul>` : ""}
+                </div>`).join("")}
+            </div>`;
+        }).join("")}
+      </section>` :
+      (top_questions || []).length ? `
+      <section>
+        <div class="section-header"><span class="section-icon">💬</span><h2>Top Interview Questions</h2></div>
         ${top_questions.map((q, i) => `
           <div class="question">
-            <div class="q-header">
+            <div class="q-top">
               <span class="q-num">${i + 1}</span>
-              <span class="cat-badge">${esc(q.category || "General")}</span>
-              <strong>${esc(q.question)}</strong>
+              ${q.category ? `<span class="cat-badge">${esc(q.category)}</span>` : ""}
+              <strong class="q-text">${esc(q.question)}</strong>
             </div>
             ${q.answer_guide ? `<p class="answer-guide"><strong>How to answer:</strong> ${esc(q.answer_guide)}</p>` : ""}
           </div>`).join("")}
@@ -152,65 +194,280 @@ export default function History({ session, onBack, onLogout }) {
 
     const tipsHTML = (emergency_tips || []).length ? `
       <section>
-        <h2>🚨 Emergency Tips</h2>
-        <ul>${emergency_tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul>
+        <div class="section-header"><span class="section-icon">🚨</span><h2>Emergency Tips</h2></div>
+        <ul class="tips-list">${emergency_tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul>
       </section>` : "";
 
-    const html = `<!DOCTYPE html><html lang="en"><head>
+    // ── HTML template ────────────────────────────────────────────────────────
+    const html = `<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Prep Plan – ${esc(app.company_name)} ${esc(app.job_title)}</title>
+<title>Prep Plan – ${esc(app.job_title || "Role")}${app.company_name ? ` @ ${esc(app.company_name)}` : ""}</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap');
+  /* ── Theme variables ── */
+  :root[data-theme="light"] {
+    --bg: #F8FAFC; --card: #FFFFFF; --card-alt: #F1F5F9;
+    --text: #0F172A; --text-muted: #64748B; --text-faint: #94A3B8;
+    --border: #E2E8F0; --accent: #059669; --accent-bg: #05966912;
+    --nav-bg: #FFFFFF; --nav-border: #E2E8F0;
+    --day-header: #F1F5F9;
+  }
+  :root[data-theme="dark"] {
+    --bg: #0A0F1E; --card: #111827; --card-alt: #1A2133;
+    --text: #CBD5E1; --text-muted: #6B7FA3; --text-faint: #3D5068;
+    --border: #1E2D40; --accent: #00E5A0; --accent-bg: #00E5A012;
+    --nav-bg: #0D1526; --nav-border: #1E2D40;
+    --day-header: #1A2133;
+  }
+
+  /* ── Reset & base ── */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Syne', sans-serif; background: #0d0d0d; color: #e2e2e2; padding: 40px 24px; }
-  .page { max-width: 780px; margin: 0 auto; }
-  header { margin-bottom: 36px; padding-bottom: 20px; border-bottom: 1px solid #2a2a2a; }
-  header h1 { font-size: 26px; font-weight: 800; color: #fff; letter-spacing: -0.02em; margin-bottom: 6px; }
-  header .meta { font-size: 12px; color: #666; font-family: 'DM Mono', monospace; }
-  section { background: #161616; border: 1px solid #2a2a2a; border-radius: 12px; padding: 22px 24px; margin-bottom: 16px; }
-  h2 { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 14px; }
-  .verdict { font-size: 13px; color: #999; line-height: 1.7; margin-bottom: 14px; font-family: 'DM Mono', monospace; }
-  .muted { color: #666; font-size: 12px; font-family: 'DM Mono', monospace; }
-  .round { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
-  .round-num { width: 24px; height: 24px; background: #00E5A015; border: 1px solid #00E5A040; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #00E5A0; font-family: 'DM Mono', monospace; font-weight: 700; flex-shrink: 0; }
-  .round strong { font-size: 13px; color: #e2e2e2; }
-  .round p { margin-top: 3px; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: var(--bg); color: var(--text);
+    transition: background 0.2s, color 0.2s;
+    min-height: 100vh;
+  }
+  a { color: var(--accent); }
+
+  /* ── Nav bar ── */
+  .nav {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--nav-bg); border-bottom: 1px solid var(--nav-border);
+    padding: 0 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 56px;
+  }
+  .nav-brand {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 17px; font-weight: 800; color: var(--text); letter-spacing: -0.02em;
+    text-decoration: none;
+  }
+  .nav-brand .logo {
+    width: 28px; height: 28px; background: var(--accent); border-radius: 7px;
+    display: flex; align-items: center; justify-content: center; font-size: 14px;
+  }
+  .nav-brand .accent { color: var(--accent); }
+  .nav-actions { display: flex; align-items: center; gap: 8px; }
+  .nav-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+    border-radius: 8px; padding: 6px 14px; font-size: 12px; cursor: pointer;
+    font-family: inherit; transition: all 0.15s;
+  }
+  .nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .nav-btn.primary {
+    background: var(--accent-bg); border-color: var(--accent); color: var(--accent);
+  }
+
+  /* ── Page body ── */
+  .page { max-width: 1100px; margin: 0 auto; padding: 40px 40px 80px; }
+
+  /* ── Page header ── */
+  .page-header {
+    margin-bottom: 36px; padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .page-header h1 {
+    font-size: 28px; font-weight: 800; color: var(--text);
+    letter-spacing: -0.02em; margin-bottom: 8px;
+  }
+  .page-header .meta {
+    font-size: 13px; color: var(--text-muted);
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  }
+  .meta-pill {
+    display: inline-block; background: var(--accent-bg);
+    border: 1px solid var(--accent); color: var(--accent);
+    border-radius: 20px; padding: 2px 10px; font-size: 11px;
+    font-weight: 600; margin-top: 8px;
+  }
+
+  /* ── Sections ── */
+  section {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px 28px; margin-bottom: 16px;
+  }
+  .section-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 16px;
+  }
+  .section-icon { font-size: 18px; line-height: 1; }
+  h2 { font-size: 16px; font-weight: 700; color: var(--text); }
+  .verdict {
+    font-size: 13px; color: var(--text-muted); line-height: 1.7;
+    margin-bottom: 16px;
+    font-family: "SF Mono", "Fira Code", monospace;
+  }
+  .muted { color: var(--text-muted); font-size: 12px; }
+  .chip {
+    font-size: 11px; background: var(--card-alt); color: var(--text-muted);
+    border: 1px solid var(--border); border-radius: 5px; padding: 1px 7px;
+    margin-left: 6px; font-family: "SF Mono","Fira Code",monospace;
+  }
+
+  /* ── Rounds ── */
+  .rounds { display: flex; flex-direction: column; gap: 10px; }
+  .round { display: flex; gap: 14px; align-items: flex-start; }
+  .round-num {
+    width: 26px; height: 26px; flex-shrink: 0;
+    background: var(--accent-bg); border: 1px solid var(--accent);
+    border-radius: 7px; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: var(--accent);
+    font-family: "SF Mono","Fira Code",monospace;
+  }
+  .round-body { flex: 1; }
+  .round-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .round-body .muted { margin-top: 3px; display: block; line-height: 1.5; }
+
+  /* ── Readiness items ── */
   .items { display: flex; flex-direction: column; gap: 8px; }
-  .item { padding: 10px 14px; background: #0d0d0d; border-radius: 8px; border: 1px solid #2a2a2a; }
-  .item-label { font-size: 13px; font-family: 'DM Mono', monospace; font-weight: 600; color: #e2e2e2; }
-  .badge { font-size: 11px; font-family: 'DM Mono', monospace; font-weight: 600; border: 1px solid; border-radius: 5px; padding: 2px 7px; margin-left: 10px; }
-  .item-note { font-size: 11px; color: #666; font-family: 'DM Mono', monospace; line-height: 1.6; margin-top: 6px; padding-top: 6px; border-top: 1px solid #2a2a2a; }
-  .day-card { border: 1px solid #2a2a2a; border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
-  .day-header { background: #1e1e1e; padding: 10px 14px; font-size: 13px; font-weight: 600; color: #e2e2e2; }
-  .day-num { color: #00E5A0; margin-right: 8px; font-family: 'DM Mono', monospace; }
-  .day-card ul { padding: 10px 14px; list-style: none; }
-  .day-card li { margin-bottom: 8px; }
-  .day-card label { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #ccc; font-family: 'DM Mono', monospace; line-height: 1.5; cursor: pointer; }
-  .day-card input[type=checkbox] { margin-top: 2px; accent-color: #00E5A0; flex-shrink: 0; }
-  .question { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #2a2a2a; }
-  .question:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
-  .q-header { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
-  .q-num { font-size: 11px; background: #00E5A015; color: #00E5A0; border: 1px solid #00E5A040; border-radius: 5px; padding: 2px 6px; font-family: 'DM Mono', monospace; font-weight: 700; flex-shrink: 0; }
-  .cat-badge { font-size: 10px; background: #ffffff0d; color: #888; border: 1px solid #2a2a2a; border-radius: 4px; padding: 2px 6px; font-family: 'DM Mono', monospace; flex-shrink: 0; }
-  .q-header strong { font-size: 13px; color: #e2e2e2; line-height: 1.4; }
-  .answer-guide { font-size: 12px; color: #888; font-family: 'DM Mono', monospace; line-height: 1.7; }
-  section ul { padding-left: 18px; }
-  section ul li { font-size: 13px; color: #ccc; font-family: 'DM Mono', monospace; line-height: 1.7; margin-bottom: 4px; }
-  @media print { body { background: #fff; color: #000; } section { background: #fff; border-color: #ddd; } }
+  .item {
+    padding: 11px 16px; background: var(--card-alt);
+    border-radius: 9px; border: 1px solid var(--border);
+  }
+  .item-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .item-label { font-size: 13px; font-weight: 600; color: var(--text); }
+  .badge {
+    font-size: 11px; font-weight: 700; border: 1px solid;
+    border-radius: 5px; padding: 2px 8px; white-space: nowrap; flex-shrink: 0;
+    font-family: "SF Mono","Fira Code",monospace;
+  }
+  .item-note {
+    font-size: 11px; color: var(--text-muted); line-height: 1.6; margin-top: 8px;
+    padding-top: 8px; border-top: 1px solid var(--border);
+    font-family: "SF Mono","Fira Code",monospace;
+  }
+
+  /* ── Day-by-day ── */
+  .day-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .day-card { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .day-header {
+    background: var(--day-header); padding: 10px 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .day-num {
+    font-size: 11px; font-weight: 700; color: var(--accent);
+    font-family: "SF Mono","Fira Code",monospace; white-space: nowrap;
+  }
+  .day-theme { font-size: 13px; font-weight: 600; color: var(--text); }
+  .task-list { padding: 10px 14px; list-style: none; }
+  .task-list li { margin-bottom: 7px; }
+  .task-label {
+    display: flex; align-items: flex-start; gap: 8px;
+    font-size: 13px; color: var(--text-muted); line-height: 1.5; cursor: pointer;
+  }
+  .task-cb { margin-top: 2px; accent-color: var(--accent); flex-shrink: 0; }
+  .task-label input:checked + span { text-decoration: line-through; opacity: 0.5; }
+
+  /* ── Question bank ── */
+  .qbank-section { margin-bottom: 20px; }
+  .qbank-section:last-child { margin-bottom: 0; }
+  .qbank-heading {
+    font-size: 13px; font-weight: 700; color: var(--text);
+    padding: 8px 0; margin-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .qbank-count {
+    font-size: 11px; font-weight: 400; color: var(--text-faint);
+    font-family: "SF Mono","Fira Code",monospace; margin-left: 6px;
+  }
+  .question {
+    padding: 12px 0; border-bottom: 1px solid var(--border);
+  }
+  .question:last-child { border-bottom: none; }
+  .q-top { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+  .q-num {
+    font-size: 10px; background: var(--accent-bg); color: var(--accent);
+    border: 1px solid var(--accent); border-radius: 4px; padding: 2px 5px;
+    font-family: "SF Mono","Fira Code",monospace; font-weight: 700; flex-shrink: 0; margin-top: 1px;
+  }
+  .q-text { font-size: 13px; color: var(--text); line-height: 1.5; flex: 1; }
+  .diff-badge {
+    font-size: 10px; font-weight: 700; border: 1px solid; border-radius: 4px;
+    padding: 2px 6px; white-space: nowrap; flex-shrink: 0; margin-top: 1px;
+    text-transform: uppercase; font-family: "SF Mono","Fira Code",monospace;
+  }
+  .cat-badge {
+    font-size: 10px; background: var(--card-alt); color: var(--text-muted);
+    border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px;
+    font-family: "SF Mono","Fira Code",monospace; flex-shrink: 0;
+  }
+  .answer-guide {
+    font-size: 12px; color: var(--text-muted); line-height: 1.7; margin-bottom: 4px;
+    font-family: "SF Mono","Fira Code",monospace;
+  }
+  .key-points {
+    margin: 4px 0 0 20px; padding: 0;
+  }
+  .key-points li {
+    font-size: 11px; color: var(--text-faint); line-height: 1.6; margin-bottom: 2px;
+    font-family: "SF Mono","Fira Code",monospace;
+  }
+
+  /* ── Tips ── */
+  .tips-list { padding-left: 20px; }
+  .tips-list li {
+    font-size: 13px; color: var(--text-muted); line-height: 1.7; margin-bottom: 6px;
+  }
+
+  /* ── Print ── */
+  @media print {
+    .nav { display: none; }
+    body { background: #fff !important; color: #000 !important; }
+    section { background: #fff !important; border-color: #ddd !important; break-inside: avoid; }
+    .page-header { break-after: avoid; }
+    .day-grid { grid-template-columns: 1fr 1fr; }
+  }
 </style>
-</head><body>
+</head>
+<body>
+
+<nav class="nav">
+  <a class="nav-brand" href="#">
+    <div class="logo">⚡</div>
+    Job<span class="accent">Craft</span>
+  </a>
+  <div class="nav-actions">
+    <button class="nav-btn primary" onclick="window.print()">🖨️ Print</button>
+    <button class="nav-btn" id="theme-btn" onclick="toggleTheme()">🌙 Dark</button>
+  </div>
+</nav>
+
 <div class="page">
-  <header>
+  <div class="page-header">
     <h1>🎯 Interview Prep Plan</h1>
-    <p class="meta">${esc(app.job_title || "Role")}${app.company_name ? ` · ${esc(app.company_name)}` : ""}${app.days_until_interview ? ` · ${app.days_until_interview} day${app.days_until_interview !== 1 ? "s" : ""} to interview` : ""}</p>
-  </header>
+    <p class="meta">
+      ${esc(app.job_title || "Role")}${app.company_name ? ` · ${esc(app.company_name)}` : ""}
+    </p>
+    ${app.days_until_interview ? `<span class="meta-pill">📅 ${app.days_until_interview} day${app.days_until_interview !== 1 ? "s" : ""} to interview</span>` : ""}
+  </div>
+
   ${structureHTML}
   ${readinessHTML}
   ${dailyHTML}
   ${questionsHTML}
   ${tipsHTML}
 </div>
+
+<script>
+  (function() {
+    var saved = localStorage.getItem('jc-prep-theme') || 'light';
+    applyTheme(saved);
+  })();
+
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    var btn = document.getElementById('theme-btn');
+    if (btn) btn.textContent = t === 'dark' ? '☀️ Light' : '🌙 Dark';
+    localStorage.setItem('jc-prep-theme', t);
+  }
+
+  function toggleTheme() {
+    var current = document.documentElement.getAttribute('data-theme');
+    applyTheme(current === 'dark' ? 'light' : 'dark');
+  }
+</script>
 </body></html>`;
 
     const tab = window.open("", "_blank");
@@ -220,7 +477,11 @@ export default function History({ session, onBack, onLogout }) {
   async function generatePrepPlanForApp() {
     const app = genModal;
     if (!app || !genDays) return;
-    setGenLoading(true);
+    // Close modal immediately, show spinner in row
+    const capturedDays  = genDays;
+    const capturedHours = genHours;
+    setGenModal(null);
+    setGeneratingId(app.id);
     setGenError("");
 
     const truncateText = (text, max = 3000) => {
@@ -232,6 +493,8 @@ export default function History({ session, onBack, onLogout }) {
     const jdText     = truncateText(app.job_description || "");
     const company    = app.company_name || "";
     const jobTitle   = app.job_title || "";
+    const genDaysEff = capturedDays;
+    const genHoursEff= capturedHours;
 
     const controller  = new AbortController();
     const timeoutId   = setTimeout(() => controller.abort(), 60000);
@@ -286,8 +549,8 @@ Be extremely concise:
 CONTEXT:
 - Role: ${jobTitle || "the role"}
 - Company: ${company || "the company"}
-- Days until interview: ${genDays}
-- Study hours per day: ${genHours}
+- Days until interview: ${genDaysEff}
+- Study hours per day: ${genHoursEff}
 - Tailored resume: ${resumeText}
 - Job description: ${jdText}
 - Research snippets: ${snippets ? snippets.slice(0, 600) : "No web search results available. Base analysis on JD and resume only."}
@@ -327,7 +590,7 @@ Return ONLY a JSON object. No markdown. No backticks.
 }
 
 Rules:
-- daily_plan must have exactly ${genDays} day entries, max 3 tasks each
+- daily_plan must have exactly ${genDaysEff} day entries, max 3 tasks each
 - question_bank sections: opening=3, domain=5, technical=5, sql_data=4, leadership_behavioral=5, vp_strategic=3, closing=2
 - Each question must be specific to the role and company, not generic
 - key_points: exactly 2 bullet points per question
@@ -353,25 +616,31 @@ STRICT SKILL MATCHING RULES for readiness_assessment:
       // Persist to Supabase
       await supabase.from("applications").update({
         prep_plan: plan,
-        days_until_interview: genDays,
+        days_until_interview: genDaysEff,
       }).eq("id", app.id);
 
       // Update local state so the row updates immediately
-      const updatedApp = { ...app, prep_plan: plan, days_until_interview: genDays };
+      const updatedApp = { ...app, prep_plan: plan, days_until_interview: genDaysEff };
       setApps(prev => prev.map(a => a.id === app.id ? updatedApp : a));
 
-      // Close modal and open the plan
-      setGenModal(null);
-      setGenDays(null);
-      setGenHours(2);
+      // Show green toast, then open plan
+      const toastLabel = `${app.job_title || "Prep plan"} ready!`;
+      setSuccessToast(toastLabel);
+      setTimeout(() => setSuccessToast(""), 3500);
       openPrepPlan(updatedApp);
     } catch (e) {
       clearTimeout(timeoutId);
       console.error("History generatePrepPlan error:", e);
-      if (e.name === "AbortError") setGenError("This is taking longer than usual. Please try again.");
-      else setGenError("Failed to generate plan: " + e.message);
+      const errMsg = e.name === "AbortError"
+        ? "Timed out. Please try again."
+        : "Failed to generate plan: " + e.message;
+      setGenError(errMsg);
+      // Re-open modal with error so user can retry
+      setGenModal(app);
+      setGenDays(capturedDays);
+      setGenHours(capturedHours);
     } finally {
-      setGenLoading(false);
+      setGeneratingId(null);
     }
   }
 
@@ -415,9 +684,25 @@ STRICT SKILL MATCHING RULES for readiness_assessment:
     <div style={{ minHeight: "100vh", background: theme.background, fontFamily: "'Syne', sans-serif", color: theme.text, transition: "background 0.3s, color 0.3s" }}>
 
       {/* ── Generate Prep Plan Modal ────────────────────────────────────────── */}
+      {/* ── Success Toast ───────────────────────────────────────────────────── */}
+      {successToast && (
+        <div style={{
+          position: "fixed", bottom: 28, right: 28, zIndex: 2000,
+          background: "#16a34a", color: "#fff",
+          borderRadius: 10, padding: "12px 20px",
+          fontSize: 13, fontFamily: "'DM Mono', monospace", fontWeight: 600,
+          boxShadow: "0 4px 20px #00000040",
+          animation: "pc-slide-in 0.3s ease",
+          display: "flex", alignItems: "center", gap: 8,
+        }}>
+          <style>{`@keyframes pc-slide-in { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }`}</style>
+          ✅ {successToast}
+        </div>
+      )}
+
       {genModal && (
         <div
-          onClick={e => { if (e.target === e.currentTarget && !genLoading) { setGenModal(null); setGenError(""); } }}
+          onClick={e => { if (e.target === e.currentTarget) { setGenModal(null); setGenError(""); } }}
           style={{
             position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
             display: "flex", alignItems: "center", justifyContent: "center",
@@ -507,30 +792,28 @@ STRICT SKILL MATCHING RULES for readiness_assessment:
             <div style={{ display: "flex", gap: 10 }}>
               <button
                 onClick={() => { setGenModal(null); setGenError(""); setGenDays(null); }}
-                disabled={genLoading}
                 style={{
                   flex: 1, background: "transparent", border: `1px solid ${theme.border}`,
                   color: theme.textMuted, borderRadius: 9, padding: "11px 0",
-                  fontSize: 13, cursor: genLoading ? "not-allowed" : "pointer",
-                  fontFamily: "'DM Mono', monospace", opacity: genLoading ? 0.5 : 1,
+                  fontSize: 13, cursor: "pointer", fontFamily: "'DM Mono', monospace",
                 }}
               >
                 Cancel
               </button>
               <button
                 onClick={generatePrepPlanForApp}
-                disabled={!genDays || genLoading}
+                disabled={!genDays}
                 style={{
                   flex: 2,
-                  background: genDays && !genLoading ? theme.accent : theme.border,
-                  color: genDays && !genLoading ? theme.background : theme.textFaint,
+                  background: genDays ? theme.accent : theme.border,
+                  color: genDays ? theme.background : theme.textFaint,
                   border: "none", borderRadius: 9, padding: "11px 0",
                   fontSize: 13, fontWeight: 700,
-                  cursor: genDays && !genLoading ? "pointer" : "not-allowed",
+                  cursor: genDays ? "pointer" : "not-allowed",
                   fontFamily: "'Syne', sans-serif", transition: "all 0.15s",
                 }}
               >
-                {genLoading ? "Generating…" : "Generate Plan →"}
+                Generate Plan →
               </button>
             </div>
           </div>
@@ -551,6 +834,7 @@ STRICT SKILL MATCHING RULES for readiness_assessment:
         .pill-btn { transition: all 0.15s; }
         .time-sel { appearance: none; -webkit-appearance: none; cursor: pointer; }
         .hist-actions { display: flex; flex-direction: row; gap: 6px; align-items: center; justify-content: flex-end; flex-wrap: nowrap; }
+        @keyframes hist-spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
         @media (max-width: 700px) {
           .hist-actions { flex-direction: column; align-items: flex-end; }
         }
@@ -589,7 +873,7 @@ STRICT SKILL MATCHING RULES for readiness_assessment:
       </div>
 
       {/* ── Body ───────────────────────────────────────────────────────────── */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "48px 24px" }}>
+      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "48px 40px" }}>
 
         {/* Title */}
         <div style={{ marginBottom: 28 }}>
@@ -807,7 +1091,16 @@ STRICT SKILL MATCHING RULES for readiness_assessment:
                         >
                           View PDF
                         </button>
-                        {app.prep_plan ? (
+                        {generatingId === app.id ? (
+                          <span style={{
+                            fontSize: 11, color: theme.accent, fontFamily: "'DM Mono', monospace",
+                            display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap",
+                            padding: "6px 10px",
+                          }}>
+                            <span style={{ animation: "hist-spin 1s linear infinite", display: "inline-block" }}>⟳</span>
+                            Generating…
+                          </span>
+                        ) : app.prep_plan ? (
                           <button
                             className="view-btn"
                             title="View prep plan"

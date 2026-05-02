@@ -1449,7 +1449,7 @@ For each gap or neutral item in readiness_assessment, add a note field with:
       )}
       <style>{`@keyframes fadeInUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }`}</style>
 
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "48px 24px" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "48px 40px" }}>
         <div style={{ textAlign: "center", marginBottom: 52 }}>
           <div style={{ display: "inline-block", background: theme.accent + "12", border: `1px solid ${theme.accent}30`, borderRadius: 20, padding: "6px 16px", fontSize: 12, color: theme.accent, marginBottom: 20, fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em" }}>STOP SPENDING 25 MIN PER APPLICATION</div>
           <h1 style={{ fontSize: 42, fontWeight: 800, color: theme.textStrong, lineHeight: 1.15, letterSpacing: "-0.03em", marginBottom: 14 }}>
