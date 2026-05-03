@@ -359,12 +359,12 @@ export default function Login({ emailConfirmed = false, onConfirmedDismiss = () 
       minHeight: "100vh",
       background: isDark ? theme.background : "#EEF2FF",
       display: "flex", alignItems: "center", justifyContent: "center",
-      fontFamily: "'Syne', sans-serif", color: theme.text,
+      fontFamily: "'Plus Jakarta Sans', sans-serif", color: theme.text,
       padding: "24px 16px",
       transition: "background 0.3s, color 0.3s",
     }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         .lg-submit:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
         .lg-link:hover { text-decoration: underline !important; }
@@ -583,11 +583,11 @@ export default function Login({ emailConfirmed = false, onConfirmedDismiss = () 
               disabled={loading || confirmMismatch}
               style={{
                 background: loading || confirmMismatch ? theme.border : theme.accent,
-                color: loading || confirmMismatch ? theme.textFaint : isDark ? "#0A0F1E" : "#FFFFFF",
+                color: loading || confirmMismatch ? theme.textFaint : isDark ? "#0F172A" : "#FFFFFF",
                 border: "none", borderRadius: 10, padding: "13px",
                 fontSize: 15, fontWeight: 700,
                 cursor: loading || confirmMismatch ? "not-allowed" : "pointer",
-                fontFamily: "'Syne', sans-serif", marginTop: 4,
+                fontFamily: "'Plus Jakarta Sans', sans-serif", marginTop: 4,
                 transition: "all 0.2s",
               }}
             >
@@ -679,12 +679,12 @@ export function PasswordReset({ onDone }) {
       minHeight: "100vh",
       background: isDark ? theme.background : "#EEF2FF",
       display: "flex", alignItems: "center", justifyContent: "center",
-      fontFamily: "'Syne', sans-serif", color: theme.text,
+      fontFamily: "'Plus Jakarta Sans', sans-serif", color: theme.text,
       padding: "24px 16px",
       transition: "background 0.3s, color 0.3s",
     }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         .pr-submit:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
       `}</style>
@@ -730,7 +730,7 @@ export function PasswordReset({ onDone }) {
           /* Success state */
           <div style={{ textAlign: "center", padding: "12px 0 8px" }}>
             <div style={{ fontSize: 44, marginBottom: 16 }}>✅</div>
-            <p style={{ fontSize: 15, fontWeight: 700, color: "#16A34A", fontFamily: "'Syne', sans-serif", marginBottom: 8 }}>
+            <p style={{ fontSize: 15, fontWeight: 700, color: "#16A34A", fontFamily: "'Plus Jakarta Sans', sans-serif", marginBottom: 8 }}>
               Password updated!
             </p>
             <p style={{ fontSize: 13, color: theme.textMuted, fontFamily: "'DM Mono', monospace", lineHeight: 1.6 }}>
@@ -804,11 +804,11 @@ export function PasswordReset({ onDone }) {
               disabled={loading || confirmMismatch}
               style={{
                 background: loading || confirmMismatch ? theme.border : accentColor,
-                color: loading || confirmMismatch ? theme.textFaint : isDark ? "#0A0F1E" : "#FFFFFF",
+                color: loading || confirmMismatch ? theme.textFaint : isDark ? "#0F172A" : "#FFFFFF",
                 border: "none", borderRadius: 10, padding: "13px",
                 fontSize: 15, fontWeight: 700,
                 cursor: loading || confirmMismatch ? "not-allowed" : "pointer",
-                fontFamily: "'Syne', sans-serif",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
                 transition: "all 0.2s",
               }}
             >

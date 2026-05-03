@@ -18,7 +18,7 @@ export default function DiffView({ original, tailored }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-        <span style={{ color: theme.textStrong, fontWeight: 700, fontSize: 15, fontFamily: "'Syne', sans-serif" }}>Resume Diff</span>
+        <span style={{ color: theme.textStrong, fontWeight: 700, fontSize: 15, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Resume Diff</span>
         <span style={{ background: "#FF6B6B18", color: "#FF6B6B", border: "1px solid #FF6B6B40", borderRadius: 4, padding: "2px 8px", fontSize: 11, fontFamily: "'DM Mono', monospace", fontWeight: 500 }}>{changes} lines changed</span>
         <span style={{ background: theme.accent + "18", color: theme.accent, border: `1px solid ${theme.accent}40`, borderRadius: 4, padding: "2px 8px", fontSize: 11, fontFamily: "'DM Mono', monospace", fontWeight: 500 }}>ATS Optimized</span>
       </div>

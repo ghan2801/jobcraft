@@ -4,7 +4,12 @@
       "Bash(npm install:*)",
       "Bash(node:*)",
       "Bash(npm run:*)",
-      "Bash(npx vite:*)"
+      "Bash(npx vite:*)",
+      "Bash(ls *.jsx)",
+      "Bash(sed -i '' 's/#0A0F1E/#0F172A/g; s/#111827/#1E293B/g; s/#1E2D40/#334155/g; s/#6B7FA3/#64748B/g; s/#059669/#2563EB/g; s/#00FFB3/#60A5FA/g; s/#1A2133/#243044/g' /Users/ghanshyamrajput/Desktop/jobcraft/src/DiffView.jsx)",
+      "Bash(sed -i '' 's/#00E5A018/#3B82F618/g; s/#00E5A040/#3B82F640/g; s/#00E5A050/#3B82F650/g; s/#00E5A012/#3B82F612/g; s/#00E5A015/#3B82F615/g' /Users/ghanshyamrajput/Desktop/jobcraft/src/DiffView.jsx)",
+      "Bash(sed -i '' 's/rgba\\(0,229,160,0\\\\.12\\)/rgba\\(59,130,246,0.12\\)/g' /Users/ghanshyamrajput/Desktop/jobcraft/src/ResumeHTML.jsx)",
+      "Bash(sed -i '' 's/rgba\\(0,229,160,0\\\\.25\\)/rgba\\(59,130,246,0.25\\)/g' /Users/ghanshyamrajput/Desktop/jobcraft/src/ResumeHTML.jsx)"
     ]
   }
 }

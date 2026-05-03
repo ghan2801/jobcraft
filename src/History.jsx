@@ -210,16 +210,16 @@ export default function History({ session, onBack, onLogout }) {
   :root[data-theme="light"] {
     --bg: #F8FAFC; --card: #FFFFFF; --card-alt: #F1F5F9;
     --text: #0F172A; --text-muted: #64748B; --text-faint: #94A3B8;
-    --border: #E2E8F0; --accent: #059669; --accent-bg: #05966912;
+    --border: #E2E8F0; --accent: #2563EB; --accent-bg: #2563EB12;
     --nav-bg: #FFFFFF; --nav-border: #E2E8F0;
     --day-header: #F1F5F9;
   }
   :root[data-theme="dark"] {
-    --bg: #0A0F1E; --card: #111827; --card-alt: #1A2133;
-    --text: #CBD5E1; --text-muted: #6B7FA3; --text-faint: #3D5068;
-    --border: #1E2D40; --accent: #00E5A0; --accent-bg: #00E5A012;
-    --nav-bg: #0D1526; --nav-border: #1E2D40;
-    --day-header: #1A2133;
+    --bg: #0F172A; --card: #1E293B; --card-alt: #243044;
+    --text: #CBD5E1; --text-muted: #64748B; --text-faint: #3D5068;
+    --border: #334155; --accent: #3B82F6; --accent-bg: #3B82F612;
+    --nav-bg: #0D1526; --nav-border: #334155;
+    --day-header: #243044;
   }
 
   /* ── Reset & base ── */
@@ -426,7 +426,7 @@ export default function History({ session, onBack, onLogout }) {
 <nav class="nav">
   <a class="nav-brand" href="#">
     <div class="logo">⚡</div>
-    Job<span class="accent">Craft</span>
+    Job<span class="accent">vate</span>
   </a>
   <div class="nav-actions">
     <button class="nav-btn primary" onclick="window.print()">🖨️ Print</button>
@@ -681,7 +681,7 @@ STRICT SKILL MATCHING RULES for readiness_assessment:
   ];
 
   return (
-    <div style={{ minHeight: "100vh", background: theme.background, fontFamily: "'Syne', sans-serif", color: theme.text, transition: "background 0.3s, color 0.3s" }}>
+    <div style={{ minHeight: "100vh", background: theme.background, fontFamily: "'Plus Jakarta Sans', sans-serif", color: theme.text, transition: "background 0.3s, color 0.3s" }}>
 
       {/* ── Generate Prep Plan Modal ────────────────────────────────────────── */}
       {/* ── Success Toast ───────────────────────────────────────────────────── */}
@@ -712,7 +712,7 @@ STRICT SKILL MATCHING RULES for readiness_assessment:
           <div style={{
             background: theme.card, border: `1px solid ${theme.border}`,
             borderRadius: 16, padding: 28, width: "100%", maxWidth: 420,
-            fontFamily: "'Syne', sans-serif",
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
           }}>
             {/* Modal header */}
             <div style={{ marginBottom: 20 }}>
@@ -810,7 +810,7 @@ STRICT SKILL MATCHING RULES for readiness_assessment:
                   border: "none", borderRadius: 9, padding: "11px 0",
                   fontSize: 13, fontWeight: 700,
                   cursor: genDays ? "pointer" : "not-allowed",
-                  fontFamily: "'Syne', sans-serif", transition: "all 0.15s",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif", transition: "all 0.15s",
                 }}
               >
                 Generate Plan →
@@ -821,7 +821,7 @@ STRICT SKILL MATCHING RULES for readiness_assessment:
       )}
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: ${theme.background}; }
@@ -851,7 +851,7 @@ STRICT SKILL MATCHING RULES for readiness_assessment:
           <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }} onClick={onBack}>
             <div style={{ width: 32, height: 32, background: theme.accent, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⚡</div>
             <span style={{ fontSize: 20, fontWeight: 800, color: theme.textStrong, letterSpacing: "-0.02em" }}>
-              Job<span style={{ color: theme.accent }}>Craft</span>
+              Job<span style={{ color: theme.accent }}>vate</span>
             </span>
           </div>
           <button
@@ -989,7 +989,7 @@ STRICT SKILL MATCHING RULES for readiness_assessment:
                   </p>
                   <button
                     onClick={onBack}
-                    style={{ background: theme.accent, color: theme.background, border: "none", borderRadius: 10, padding: "11px 26px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}
+                    style={{ background: theme.accent, color: theme.background, border: "none", borderRadius: 10, padding: "11px 26px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                   >
                     Start Tailoring →
                   </button>

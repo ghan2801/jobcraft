@@ -14,7 +14,7 @@ function SectionCard({ icon, title, children, fullWidth = false }) {
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
         <span style={{ fontSize: 16 }}>{icon}</span>
-        <span style={{ fontSize: 13, fontWeight: 700, color: theme.textStrong, fontFamily: "'Syne', sans-serif" }}>{title}</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: theme.textStrong, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{title}</span>
       </div>
       {children}
     </div>

@@ -22,7 +22,7 @@ function ImportanceBadge({ importance }) {
   const map = {
     critical: { color: "#FF6B6B", bg: "#FF6B6B18", border: "#FF6B6B40", label: "Critical" },
     moderate: { color: "#F59E0B", bg: "#F59E0B18", border: "#F59E0B40", label: "Moderate" },
-    minor:    { color: "#6B7FA3", bg: "#6B7FA318", border: "#6B7FA340", label: "Minor" },
+    minor:    { color: "#64748B", bg: "#64748B18", border: "#64748B40", label: "Minor" },
   };
   const s = map[(importance || "minor").toLowerCase()] || map.minor;
   return (
@@ -66,7 +66,7 @@ function SectionCard({ icon, title, borderColor, children }) {
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
         <span style={{ fontSize: 15 }}>{icon}</span>
-        <span style={{ fontSize: 13, fontWeight: 700, color: theme.textStrong, fontFamily: "'Syne', sans-serif" }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: theme.textStrong, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
           {title}
         </span>
       </div>
@@ -136,7 +136,7 @@ export default function GapReport({ gapReport, originalAtsScore, atsScore }) {
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
             <span style={{ fontSize: 15 }}>🎯</span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: theme.textStrong, fontFamily: "'Syne', sans-serif" }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: theme.textStrong, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
               Job Fit Assessment
             </span>
           </div>

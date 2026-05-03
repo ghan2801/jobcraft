@@ -332,7 +332,7 @@ function StepIndicator({ current }) {
             }}>
               {i < current ? "✓" : i + 1}
             </div>
-            <span style={{ fontSize: 10, color: i <= current ? theme.text : theme.textFaint, fontFamily: "'Syne', sans-serif", whiteSpace: "nowrap", letterSpacing: "0.05em" }}>{s}</span>
+            <span style={{ fontSize: 10, color: i <= current ? theme.text : theme.textFaint, fontFamily: "'Plus Jakarta Sans', sans-serif", whiteSpace: "nowrap", letterSpacing: "0.05em" }}>{s}</span>
           </div>
           {i < steps.length - 1 && (
             <div style={{ flex: 1, height: 1, background: i < current ? theme.accent : theme.border, margin: "0 8px", marginBottom: 20, transition: "background 0.3s" }} />
@@ -364,10 +364,10 @@ const RESUME_TEMPLATES = [
     preview: (
       <div style={{ background: "#fff", width: "100%", height: "100%", display: "flex" }}>
         <div style={{ width: 22, background: "#1a1a2e", flexShrink: 0, padding: "8px 4px", display: "flex", flexDirection: "column", gap: 3 }}>
-          <div style={{ width: "90%", height: 5, background: "#00E5A0", borderRadius: 1 }} />
+          <div style={{ width: "90%", height: 5, background: "#3B82F6", borderRadius: 1 }} />
           <div style={{ width: "80%", height: 3, background: "#444", borderRadius: 1 }} />
           <div style={{ width: "80%", height: 3, background: "#444", borderRadius: 1 }} />
-          <div style={{ marginTop: 4, width: "70%", height: 2, background: "#00E5A0", borderRadius: 1 }} />
+          <div style={{ marginTop: 4, width: "70%", height: 2, background: "#3B82F6", borderRadius: 1 }} />
           {[1, 2, 3].map(i => <div key={i} style={{ width: "80%", height: 2, background: "#333", borderRadius: 1 }} />)}
         </div>
         <div style={{ flex: 1, padding: "8px 5px", display: "flex", flexDirection: "column", gap: 3 }}>
@@ -385,11 +385,11 @@ const RESUME_TEMPLATES = [
       <div style={{ background: "#fff", width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
         <div style={{ background: "#1E293B", padding: "8px 6px", flexShrink: 0 }}>
           <div style={{ width: "70%", height: 5, background: "#fff", borderRadius: 1, marginBottom: 3 }} />
-          <div style={{ width: "50%", height: 3, background: "#00E5A0", borderRadius: 1 }} />
+          <div style={{ width: "50%", height: 3, background: "#3B82F6", borderRadius: 1 }} />
         </div>
         <div style={{ flex: 1, padding: "5px 6px", display: "flex", flexDirection: "column", gap: 3 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 2, marginBottom: 1 }}>
-            <div style={{ width: 2, height: 8, background: "#00E5A0", borderRadius: 1, flexShrink: 0 }} />
+            <div style={{ width: 2, height: 8, background: "#3B82F6", borderRadius: 1, flexShrink: 0 }} />
             <div style={{ width: "45%", height: 3, background: "#1E293B", borderRadius: 1 }} />
           </div>
           {[90, 80, 85, 70].map((w, i) => (
@@ -1374,9 +1374,9 @@ For each gap or neutral item in readiness_assessment, add a note field with:
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: theme.background, fontFamily: "'Syne', sans-serif", color: theme.text, padding: "0", transition: "background 0.3s, color 0.3s" }}>
+    <div style={{ minHeight: "100vh", background: theme.background, fontFamily: "'Plus Jakarta Sans', sans-serif", color: theme.text, padding: "0", transition: "background 0.3s, color 0.3s" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         textarea:focus, button:focus { outline: none; }
         ::-webkit-scrollbar { width: 6px; }
@@ -1474,7 +1474,7 @@ For each gap or neutral item in readiness_assessment, add a note field with:
                 </div>
                 <button
                   onClick={onShowProfile}
-                  style={{ background: theme.accent, color: theme.background, border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif", whiteSpace: "nowrap" }}
+                  style={{ background: theme.accent, color: theme.background, border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif", whiteSpace: "nowrap" }}
                 >Set Up Profile →</button>
               </div>
             )}
@@ -1527,7 +1527,7 @@ For each gap or neutral item in readiness_assessment, add a note field with:
                   ) : (
                     <div style={{ textAlign: "center", padding: "32px 0" }}>
                       <p style={{ color: theme.textMuted, fontSize: 13, marginBottom: 16 }}>No profile resume saved yet.</p>
-                      <button onClick={onShowProfile} style={{ background: theme.accent, color: theme.background, border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>Set Up Profile →</button>
+                      <button onClick={onShowProfile} style={{ background: theme.accent, color: theme.background, border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Set Up Profile →</button>
                     </div>
                   )}
                 </div>
@@ -1582,7 +1582,7 @@ For each gap or neutral item in readiness_assessment, add a note field with:
 
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20 }}>
                 <button className="btn-ghost" onClick={() => { setResume(sampleResume); setResumeSource("paste"); }} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "8px 16px", fontSize: 13, cursor: "pointer" }}>✨ Load sample</button>
-                <button className="btn-primary" onClick={() => setStep(1)} disabled={!resume.trim()} style={{ background: resume.trim() ? theme.accent : theme.border, color: resume.trim() ? theme.background : theme.textFaint, border: "none", borderRadius: 10, padding: "12px 28px", fontSize: 14, fontWeight: 700, cursor: resume.trim() ? "pointer" : "not-allowed", fontFamily: "'Syne', sans-serif" }}>Continue →</button>
+                <button className="btn-primary" onClick={() => setStep(1)} disabled={!resume.trim()} style={{ background: resume.trim() ? theme.accent : theme.border, color: resume.trim() ? theme.background : theme.textFaint, border: "none", borderRadius: 10, padding: "12px 28px", fontSize: 14, fontWeight: 700, cursor: resume.trim() ? "pointer" : "not-allowed", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Continue →</button>
               </div>
             </div>
           </div>
@@ -1684,8 +1684,8 @@ For each gap or neutral item in readiness_assessment, add a note field with:
             {loading && <LoadingMessages />}
             {error && <p style={{ color: "#FF6B6B", fontSize: 13, marginTop: 12 }}>{error}</p>}
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 20 }}>
-              <button className="btn-ghost" onClick={() => setStep(0)} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 10, padding: "12px 24px", fontSize: 14, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>← Back</button>
-              <button className="btn-primary" onClick={tailorResume} disabled={!jd.trim() || loading} style={{ background: jd.trim() && !loading ? theme.accent : theme.border, color: jd.trim() && !loading ? theme.background : theme.textFaint, border: "none", borderRadius: 10, padding: "12px 28px", fontSize: 14, fontWeight: 700, cursor: jd.trim() && !loading ? "pointer" : "not-allowed", fontFamily: "'Syne', sans-serif" }}>⚡ Tailor My Resume</button>
+              <button className="btn-ghost" onClick={() => setStep(0)} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 10, padding: "12px 24px", fontSize: 14, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>← Back</button>
+              <button className="btn-primary" onClick={tailorResume} disabled={!jd.trim() || loading} style={{ background: jd.trim() && !loading ? theme.accent : theme.border, color: jd.trim() && !loading ? theme.background : theme.textFaint, border: "none", borderRadius: 10, padding: "12px 28px", fontSize: 14, fontWeight: 700, cursor: jd.trim() && !loading ? "pointer" : "not-allowed", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>⚡ Tailor My Resume</button>
             </div>
           </div>
         )}
@@ -1744,7 +1744,7 @@ For each gap or neutral item in readiness_assessment, add a note field with:
                     tab.document.write(html);
                     tab.document.close();
                   }}
-                  style={{ background: theme.accent, color: theme.background, border: "none", borderRadius: 10, padding: "12px 22px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}
+                  style={{ background: theme.accent, color: theme.background, border: "none", borderRadius: 10, padding: "12px 22px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                 >
                   ⬇ Preview &amp; Download PDF
                 </button>
@@ -1757,7 +1757,7 @@ For each gap or neutral item in readiness_assessment, add a note field with:
                   const spin = intelligenceLoading && (tab === "diff" || tab === "gap" || tab === "review");
                   const label = tab === "diff" ? "📊 Changes" : tab === "gap" ? "🔍 Gap Report" : tab === "review" ? "✏️ Review" : tab === "tailored" ? "📄 New Resume" : tab === "cover" ? "✉️ Cover Letter" : tab === "prep" ? "🎯 PrepCoach" : "💬 Refine";
                   return (
-                    <button key={tab} onClick={() => setActiveTab(tab)} style={{ background: "none", border: "none", padding: "14px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", color: activeTab === tab ? theme.accent : theme.textFaint, borderBottom: activeTab === tab ? `2px solid ${theme.accent}` : "2px solid transparent", fontFamily: "'Syne', sans-serif", display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}>
+                    <button key={tab} onClick={() => setActiveTab(tab)} style={{ background: "none", border: "none", padding: "14px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", color: activeTab === tab ? theme.accent : theme.textFaint, borderBottom: activeTab === tab ? `2px solid ${theme.accent}` : "2px solid transparent", fontFamily: "'Plus Jakarta Sans', sans-serif", display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}>
                       {label}{spin && <span style={{ fontSize: 11, opacity: 0.7, animation: "spin 1s linear infinite", display: "inline-block" }}>⟳</span>}
                     </button>
                   );
@@ -1806,7 +1806,7 @@ For each gap or neutral item in readiness_assessment, add a note field with:
                           setResumeSaved(true);
                           setTimeout(() => setResumeSaved(false), 2000);
                         }}
-                        style={{ background: theme.accent, color: theme.background, border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif", transition: "all 0.2s" }}
+                        style={{ background: theme.accent, color: theme.background, border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif", transition: "all 0.2s" }}
                       >
                         {resumeSaved ? "Saved ✓" : "💾 Save Changes"}
                       </button>
@@ -1835,7 +1835,7 @@ For each gap or neutral item in readiness_assessment, add a note field with:
                         </p>
                         <button
                           onClick={generateCoverLetter}
-                          style={{ background: theme.accent, color: theme.background, border: "none", borderRadius: 10, padding: "13px 32px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}
+                          style={{ background: theme.accent, color: theme.background, border: "none", borderRadius: 10, padding: "13px 32px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                         >
                           ✨ Generate Cover Letter
                         </button>
@@ -1937,8 +1937,8 @@ For each gap or neutral item in readiness_assessment, add a note field with:
                     {loading && <LoadingMessages isRefine />}
                     {error && <p style={{ color: "#FF6B6B", fontSize: 13, marginTop: 8 }}>{error}</p>}
                     <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-                      <button className="btn-primary" onClick={refineWithFeedback} disabled={!feedback.trim() || loading} style={{ background: feedback.trim() && !loading ? theme.accent : theme.border, color: feedback.trim() && !loading ? theme.background : theme.textFaint, border: "none", borderRadius: 10, padding: "11px 24px", fontSize: 14, fontWeight: 700, cursor: feedback.trim() && !loading ? "pointer" : "not-allowed", fontFamily: "'Syne', sans-serif" }}>✨ Refine</button>
-                      <button className="btn-ghost" onClick={() => { setStep(0); setTailored(""); setAtsScore(null); setOriginalAtsScore(null); setJobTitle(""); setCompanyName(""); setResume(""); setJD(""); setChangeSummary(null); setGapReport(null); setReviewableChanges([]); setAcceptedChanges(new Set()); setIsReviewMode(false); setIntelligenceLoading(false); }} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 10, padding: "11px 22px", fontSize: 14, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>Start Over</button>
+                      <button className="btn-primary" onClick={refineWithFeedback} disabled={!feedback.trim() || loading} style={{ background: feedback.trim() && !loading ? theme.accent : theme.border, color: feedback.trim() && !loading ? theme.background : theme.textFaint, border: "none", borderRadius: 10, padding: "11px 24px", fontSize: 14, fontWeight: 700, cursor: feedback.trim() && !loading ? "pointer" : "not-allowed", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>✨ Refine</button>
+                      <button className="btn-ghost" onClick={() => { setStep(0); setTailored(""); setAtsScore(null); setOriginalAtsScore(null); setJobTitle(""); setCompanyName(""); setResume(""); setJD(""); setChangeSummary(null); setGapReport(null); setReviewableChanges([]); setAcceptedChanges(new Set()); setIsReviewMode(false); setIntelligenceLoading(false); }} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 10, padding: "11px 22px", fontSize: 14, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Start Over</button>
                     </div>
                   </div>
                 )}

@@ -523,8 +523,8 @@ function renderSidebarSkills(lines) {
     });
   }
   return skills.map(s =>
-    `<span style="display:inline-block;background:rgba(0,229,160,0.12);color:#00E5A0;` +
-    `border:1px solid rgba(0,229,160,0.25);border-radius:3px;padding:2px 5px;` +
+    `<span style="display:inline-block;background:rgba(59,130,246,0.12);color:#3B82F6;` +
+    `border:1px solid rgba(59,130,246,0.25);border-radius:3px;padding:2px 5px;` +
     `font-size:8px;margin:1px;font-family:Arial,sans-serif;">${esc(s)}</span>`
   ).join("");
 }
@@ -596,7 +596,7 @@ function buildClassicDoc({ name, jobTitle, inlineContactHTML, relocationLine, se
     ${name     ? `<div style="font-family:Georgia,serif;font-size:22px;font-weight:bold;color:#000;margin-bottom:4px;">${esc(name)}</div>` : ""}
     ${jobTitle ? `<div style="font-family:Arial,sans-serif;font-size:14px;color:#444;margin-bottom:6px;">${esc(jobTitle)}</div>` : ""}
     ${inlineContactHTML ? `<div style="font-size:11px;color:#666;font-family:Arial,sans-serif;margin-bottom:${relocationLine ? "4px" : "14px"};">${inlineContactHTML}</div>` : ""}
-    ${relocationLine ? `<div style="font-size:11px;color:#059669;font-style:italic;font-weight:500;margin-bottom:14px;">${esc(relocationLine)}</div>` : ""}
+    ${relocationLine ? `<div style="font-size:11px;color:#2563EB;font-style:italic;font-weight:500;margin-bottom:14px;">${esc(relocationLine)}</div>` : ""}
     <hr style="border:none;border-top:1.5px solid #CCC;margin-bottom:0;" />
     ${body}
   </div>
@@ -610,14 +610,14 @@ function buildModernDoc({ name, jobTitle, contactParts, relocationLine, sections
 
   const sidebarSection = (title, innerHTML) =>
     `<div style="margin-top:14px;border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;">` +
-    `<div style="font-size:8px;font-weight:700;text-transform:uppercase;color:#00E5A0;` +
+    `<div style="font-size:8px;font-weight:700;text-transform:uppercase;color:#3B82F6;` +
     `letter-spacing:0.1em;margin-bottom:6px;">${esc(title)}</div>` +
     innerHTML +
     `</div>`;
 
   const mainSection = (title, innerHTML) =>
     `<div style="margin-top:14px;">` +
-    `<div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#00E5A0;` +
+    `<div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#3B82F6;` +
     `letter-spacing:0.1em;margin-bottom:6px;">${esc(title)}</div>` +
     innerHTML +
     `</div>`;
@@ -627,7 +627,7 @@ function buildModernDoc({ name, jobTitle, contactParts, relocationLine, sections
 
   const sidebarHTML =
     (name     ? `<div style="font-size:16px;font-weight:bold;color:#fff;font-family:Arial,sans-serif;line-height:1.3;margin-bottom:3px;">${esc(name)}</div>` : "") +
-    (jobTitle ? `<div style="font-size:10px;color:#00E5A0;font-family:Arial,sans-serif;margin-bottom:10px;">${esc(jobTitle)}</div>` : "") +
+    (jobTitle ? `<div style="font-size:10px;color:#3B82F6;font-family:Arial,sans-serif;margin-bottom:10px;">${esc(jobTitle)}</div>` : "") +
     (contactParts.length
       ? `<div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;">` +
         contactParts.map(p =>
@@ -647,7 +647,7 @@ function buildModernDoc({ name, jobTitle, contactParts, relocationLine, sections
   const summaryHTML    = h(renderSummary(sections.summary,   "font-size:10px;line-height:1.5;margin-bottom:4px;color:#333;"));
   const experienceHTML = cleanMarkdown(renderExperience(parsedExperience, {
     companyStyle: "font-size:11px;font-weight:bold;color:#111;margin-bottom:2px;",
-    roleColor:    "#00E5A0",
+    roleColor:    "#3B82F6",
     dateColor:    "#888",
     bulletColor:  "#666",
     textColor:    "#333",
@@ -703,7 +703,7 @@ function buildExecutiveDoc({ name, jobTitle, contactParts, relocationLine, secti
   const sectionBlock = (title, innerHTML) =>
     `<div style="margin-top:16px;">` +
     `<div style="display:flex;align-items:center;gap:6px;margin-bottom:7px;">` +
-    `<div style="width:3px;height:14px;background:#00E5A0;border-radius:1px;flex-shrink:0;"></div>` +
+    `<div style="width:3px;height:14px;background:#3B82F6;border-radius:1px;flex-shrink:0;"></div>` +
     `<span style="font-size:10px;font-weight:700;text-transform:uppercase;color:#1E293B;letter-spacing:0.07em;">${esc(title)}</span>` +
     `</div>` +
     innerHTML +
@@ -720,7 +720,7 @@ function buildExecutiveDoc({ name, jobTitle, contactParts, relocationLine, secti
   const competenciesHTML = h(renderCompetenciesTable(sections.competencies, "font-size:9.5px;line-height:1.6;color:#374151;"));
   const experienceHTML   = cleanMarkdown(renderExperience(parsedExperience, {
     companyStyle: "font-size:12px;font-weight:bold;color:#0F172A;margin-bottom:2px;",
-    roleColor:    "#00E5A0",
+    roleColor:    "#3B82F6",
     dateColor:    "#64748b",
     bulletColor:  "#475569",
     textColor:    "#374151",
@@ -756,7 +756,7 @@ function buildExecutiveDoc({ name, jobTitle, contactParts, relocationLine, secti
   ${PRINT_BANNER}
   <div style="background:#1E293B;padding:28px 0.75in;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
     ${name     ? `<div style="font-size:24px;font-weight:bold;color:#fff;font-family:Arial,sans-serif;margin-bottom:5px;">${esc(name)}</div>` : ""}
-    ${jobTitle ? `<div style="font-size:14px;color:#00E5A0;font-family:Arial,sans-serif;margin-bottom:8px;">${esc(jobTitle)}</div>` : ""}
+    ${jobTitle ? `<div style="font-size:14px;color:#3B82F6;font-family:Arial,sans-serif;margin-bottom:8px;">${esc(jobTitle)}</div>` : ""}
     ${contactLine ? `<div style="font-size:11px;color:#94a3b8;font-family:Arial,sans-serif;">${esc(contactLine)}</div>` : ""}
     ${relocationLine ? `<div style="font-size:11px;color:#34d399;font-style:italic;font-weight:500;margin-top:5px;">${esc(relocationLine)}</div>` : ""}
   </div>

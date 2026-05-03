@@ -123,9 +123,9 @@ export default function Profile({ session, onBack, onLogout }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: theme.background, fontFamily: "'Syne', sans-serif", color: theme.text, transition: "background 0.3s, color 0.3s" }}>
+    <div style={{ minHeight: "100vh", background: theme.background, fontFamily: "'Plus Jakarta Sans', sans-serif", color: theme.text, transition: "background 0.3s, color 0.3s" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         textarea:focus, input:focus, button:focus { outline: none; }
         ::-webkit-scrollbar { width: 6px; }
@@ -257,7 +257,7 @@ export default function Profile({ session, onBack, onLogout }) {
                   border: "none", borderRadius: 10,
                   padding: "12px 28px", fontSize: 14, fontWeight: 700,
                   cursor: saving ? "not-allowed" : "pointer",
-                  fontFamily: "'Syne', sans-serif", transition: "all 0.2s",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif", transition: "all 0.2s",
                 }}
               >{saving ? "Saving…" : "Save Profile"}</button>
 

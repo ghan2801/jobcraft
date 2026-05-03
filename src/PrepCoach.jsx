@@ -143,7 +143,7 @@ function HeroHeader({ prepPlan, jobTitle, companyName, daysUntilInterview, hours
           <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
             <div style={{ width:38, height:38, background:theme.accent+"20", border:`1px solid ${theme.accent}40`, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>🎯</div>
             <div>
-              <h3 style={{ fontSize:20, fontWeight:800, color:theme.textStrong, margin:0, fontFamily:"'Syne', sans-serif", lineHeight:1.2 }}>
+              <h3 style={{ fontSize:20, fontWeight:800, color:theme.textStrong, margin:0, fontFamily:"'Plus Jakarta Sans', sans-serif", lineHeight:1.2 }}>
                 {jobTitle || "Interview Prep"}
               </h3>
               {companyName && <p style={{ fontSize:13, color:theme.textMuted, fontFamily:"'DM Mono', monospace", margin:0 }}>@ {companyName}</p>}
@@ -175,7 +175,7 @@ function HeroHeader({ prepPlan, jobTitle, companyName, daysUntilInterview, hours
               />
             </svg>
             <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column" }}>
-              <span style={{ fontSize:17, fontWeight:800, color, fontFamily:"'Syne', sans-serif", lineHeight:1 }}>{readyPct}%</span>
+              <span style={{ fontSize:17, fontWeight:800, color, fontFamily:"'Plus Jakarta Sans', sans-serif", lineHeight:1 }}>{readyPct}%</span>
             </div>
           </div>
           <p style={{ fontSize:10, color, fontFamily:"'DM Mono', monospace", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", margin:0 }}>{label}</p>
@@ -187,19 +187,19 @@ function HeroHeader({ prepPlan, jobTitle, companyName, daysUntilInterview, hours
         <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap" }}>
           {strongCount > 0 && (
             <div style={{ flex:1, minWidth:80, padding:"8px 12px", background:"#16a34a10", border:"1px solid #16a34a30", borderRadius:8, textAlign:"center" }}>
-              <p style={{ fontSize:20, fontWeight:800, color:"#22c55e", margin:0, fontFamily:"'Syne', sans-serif" }}>{strongCount}</p>
+              <p style={{ fontSize:20, fontWeight:800, color:"#22c55e", margin:0, fontFamily:"'Plus Jakarta Sans', sans-serif" }}>{strongCount}</p>
               <p style={{ fontSize:9, color:"#16a34a", margin:0, fontFamily:"'DM Mono', monospace", textTransform:"uppercase", letterSpacing:"0.06em" }}>Strong</p>
             </div>
           )}
           {neutralCount > 0 && (
             <div style={{ flex:1, minWidth:80, padding:"8px 12px", background:"#d9770610", border:"1px solid #d9770630", borderRadius:8, textAlign:"center" }}>
-              <p style={{ fontSize:20, fontWeight:800, color:"#f59e0b", margin:0, fontFamily:"'Syne', sans-serif" }}>{neutralCount}</p>
+              <p style={{ fontSize:20, fontWeight:800, color:"#f59e0b", margin:0, fontFamily:"'Plus Jakarta Sans', sans-serif" }}>{neutralCount}</p>
               <p style={{ fontSize:9, color:"#d97706", margin:0, fontFamily:"'DM Mono', monospace", textTransform:"uppercase", letterSpacing:"0.06em" }}>Needs Work</p>
             </div>
           )}
           {gapCount > 0 && (
             <div style={{ flex:1, minWidth:80, padding:"8px 12px", background:"#dc262610", border:"1px solid #dc262630", borderRadius:8, textAlign:"center" }}>
-              <p style={{ fontSize:20, fontWeight:800, color:"#ef4444", margin:0, fontFamily:"'Syne', sans-serif" }}>{gapCount}</p>
+              <p style={{ fontSize:20, fontWeight:800, color:"#ef4444", margin:0, fontFamily:"'Plus Jakarta Sans', sans-serif" }}>{gapCount}</p>
               <p style={{ fontSize:9, color:"#dc2626", margin:0, fontFamily:"'DM Mono', monospace", textTransform:"uppercase", letterSpacing:"0.06em" }}>Critical Gap</p>
             </div>
           )}
@@ -240,7 +240,7 @@ function SkillBarsSection({ items, theme, isDark }) {
   return (
     <div style={{ border:`1px solid ${theme.border}`, borderRadius:12, overflow:"hidden", marginBottom:12 }}>
       <div style={{ padding:"14px 18px", background:theme.cardAlt||theme.card, borderBottom:`1px solid ${theme.border}`, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-        <span style={{ fontSize:14, fontWeight:700, color:theme.textStrong, fontFamily:"'Syne', sans-serif" }}>📊 Skill Match</span>
+        <span style={{ fontSize:14, fontWeight:700, color:theme.textStrong, fontFamily:"'Plus Jakarta Sans', sans-serif" }}>📊 Skill Match</span>
         <span style={{ fontSize:11, color:theme.textMuted, fontFamily:"'DM Mono', monospace" }}>vs. job requirements</span>
       </div>
       <div style={{ padding:"16px 18px" }}>
@@ -281,7 +281,7 @@ function InterviewTimeline({ interview_structure, theme }) {
   return (
     <div style={{ border:`1px solid ${theme.border}`, borderRadius:12, overflow:"hidden", marginBottom:12 }}>
       <div style={{ padding:"14px 18px", background:theme.cardAlt||theme.card, borderBottom:`1px solid ${theme.border}` }}>
-        <span style={{ fontSize:14, fontWeight:700, color:theme.textStrong, fontFamily:"'Syne', sans-serif" }}>🗂️ Interview Structure</span>
+        <span style={{ fontSize:14, fontWeight:700, color:theme.textStrong, fontFamily:"'Plus Jakarta Sans', sans-serif" }}>🗂️ Interview Structure</span>
         {interview_structure.overview && (
           <p style={{ fontSize:12, color:theme.textMuted, fontFamily:"'DM Mono', monospace", margin:"4px 0 0", lineHeight:1.6 }}>{interview_structure.overview}</p>
         )}
@@ -299,7 +299,7 @@ function InterviewTimeline({ interview_structure, theme }) {
             {/* content */}
             <div style={{ paddingBottom: i < rounds.length - 1 ? 20 : 0, flex:1 }}>
               <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3, flexWrap:"wrap" }}>
-                <p style={{ fontSize:13, fontWeight:700, color:theme.textStrong, fontFamily:"'Syne', sans-serif", margin:0 }}>{round.name}</p>
+                <p style={{ fontSize:13, fontWeight:700, color:theme.textStrong, fontFamily:"'Plus Jakarta Sans', sans-serif", margin:0 }}>{round.name}</p>
                 {round.duration && (
                   <span style={{ fontSize:10, color:theme.accent, fontFamily:"'DM Mono', monospace", background:theme.accent+"15", padding:"2px 8px", borderRadius:10 }}>⏱ {round.duration}</span>
                 )}
@@ -326,7 +326,7 @@ function DayCard({ day, isFirst, checked, onCheck, theme }) {
     <div style={{ border:`1px solid ${allDone ? "#16a34a50" : open ? theme.accent+"60" : theme.border}`, borderRadius:10, marginBottom:8, overflow:"hidden", transition:"border-color 0.15s" }}>
       <button
         onClick={() => setOpen(o => !o)}
-        style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", background:allDone ? "#16a34a08" : open ? theme.accent+"10" : "transparent", border:"none", padding:"12px 16px", cursor:"pointer", color:theme.textStrong, fontFamily:"'Syne', sans-serif", fontSize:13, fontWeight:600, textAlign:"left" }}
+        style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", background:allDone ? "#16a34a08" : open ? theme.accent+"10" : "transparent", border:"none", padding:"12px 16px", cursor:"pointer", color:theme.textStrong, fontFamily:"'Plus Jakarta Sans', sans-serif", fontSize:13, fontWeight:600, textAlign:"left" }}
       >
         <span>
           {allDone && <span style={{ marginRight:6 }}>✅</span>}
@@ -369,7 +369,7 @@ function DayPlanSection({ daily_plan, checked, onCheck, theme, isDark }) {
     <div style={{ border:`1px solid ${theme.border}`, borderRadius:12, overflow:"hidden", marginBottom:12 }}>
       <div style={{ padding:"14px 18px", background:theme.cardAlt||theme.card, borderBottom:`1px solid ${theme.border}` }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
-          <span style={{ fontSize:14, fontWeight:700, color:theme.textStrong, fontFamily:"'Syne', sans-serif" }}>📅 {daily_plan.length}-Day Plan</span>
+          <span style={{ fontSize:14, fontWeight:700, color:theme.textStrong, fontFamily:"'Plus Jakarta Sans', sans-serif" }}>📅 {daily_plan.length}-Day Plan</span>
           <span style={{ fontSize:11, color: pct === 100 ? "#22c55e" : theme.textMuted, fontFamily:"'DM Mono', monospace" }}>
             {pct === 100 ? "🎉 All done!" : `${doneTasks}/${totalTasks} tasks`}
           </span>
@@ -396,7 +396,7 @@ function GapResourceCard({ resource, isDark, theme }) {
   return (
     <div style={{ border:"1px solid #ef444430", borderLeft:"3px solid #ef4444", borderRadius:10, overflow:"hidden", marginBottom:14, background:isDark?"#1a0a0a":"#fef2f2" }}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 16px", borderBottom:"1px solid #ef444420" }}>
-        <span style={{ fontSize:13, fontWeight:700, color:theme.textStrong, fontFamily:"'Syne', sans-serif" }}>🎯 {resource.skill}</span>
+        <span style={{ fontSize:13, fontWeight:700, color:theme.textStrong, fontFamily:"'Plus Jakarta Sans', sans-serif" }}>🎯 {resource.skill}</span>
         <span style={{ fontSize:10, background:"#ef444418", color:"#ef4444", border:"1px solid #ef444440", borderRadius:5, padding:"2px 8px", fontFamily:"'DM Mono', monospace", fontWeight:700, textTransform:"uppercase" }}>
           {resource.importance === "gap" ? "Gap" : resource.importance || "Gap"}
         </span>
@@ -417,7 +417,7 @@ function GapResourceCard({ resource, isDark, theme }) {
         <p style={{ fontSize:10, color:"#ef444490", fontFamily:"'DM Mono', monospace", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>
           🛠️ Build This{mp.time_needed ? ` (${mp.time_needed})` : ""}
         </p>
-        {mp.title && <p style={{ fontSize:13, fontWeight:700, color:theme.textStrong, fontFamily:"'Syne', sans-serif", marginBottom:6 }}>{mp.title}</p>}
+        {mp.title && <p style={{ fontSize:13, fontWeight:700, color:theme.textStrong, fontFamily:"'Plus Jakarta Sans', sans-serif", marginBottom:6 }}>{mp.title}</p>}
         {mp.description && <p style={{ fontSize:12, color:theme.textMuted, fontFamily:"'DM Mono', monospace", lineHeight:1.6, marginBottom:10 }}>{mp.description}</p>}
         {(mp.steps||[]).map((step, i) => (
           <label key={i} style={{ display:"flex", alignItems:"flex-start", gap:8, cursor:"pointer", marginBottom:6 }}>
@@ -455,7 +455,7 @@ function GapResourcesSection({ gapResources, gapResourcesLoading, gapSkillNames,
   return (
     <div style={{ border:`1px solid ${theme.border}`, borderRadius:12, overflow:"hidden", marginBottom:12 }}>
       <div style={{ padding:"14px 18px", background:theme.cardAlt||theme.card, borderBottom:`1px solid ${theme.border}` }}>
-        <span style={{ fontSize:14, fontWeight:700, color:theme.textStrong, fontFamily:"'Syne', sans-serif" }}>📚 Gap Learning Resources</span>
+        <span style={{ fontSize:14, fontWeight:700, color:theme.textStrong, fontFamily:"'Plus Jakarta Sans', sans-serif" }}>📚 Gap Learning Resources</span>
       </div>
       <div style={{ padding:"16px 18px" }}>
         <style>{`@keyframes pc-pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style>
@@ -541,7 +541,7 @@ function QuestionBank({ question_bank, practiced, onToggle, theme, isDark }) {
       <div style={{ border:`1px solid ${theme.border}`, borderRadius:12, overflow:"hidden", marginBottom:12 }}>
         {/* Header */}
         <div style={{ padding:"14px 18px", background:theme.cardAlt||theme.card, borderBottom:`1px solid ${theme.border}`, display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:8 }}>
-          <span style={{ fontSize:14, fontWeight:700, color:theme.textStrong, fontFamily:"'Syne', sans-serif" }}>🎤 Practice Mode</span>
+          <span style={{ fontSize:14, fontWeight:700, color:theme.textStrong, fontFamily:"'Plus Jakarta Sans', sans-serif" }}>🎤 Practice Mode</span>
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
             <span style={{ fontSize:11, fontFamily:"'DM Mono', monospace", color:theme.textMuted }}>
               Q {clampedIdx + 1} of {filteredAll.length}
@@ -566,7 +566,7 @@ function QuestionBank({ question_bank, practiced, onToggle, theme, isDark }) {
                 </span>
               )}
               <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, marginTop:12, marginBottom:20 }}>
-                <p style={{ fontSize:16, fontWeight:700, color:theme.textStrong, lineHeight:1.5, fontFamily:"'Syne', sans-serif", margin:0 }}>
+                <p style={{ fontSize:16, fontWeight:700, color:theme.textStrong, lineHeight:1.5, fontFamily:"'Plus Jakarta Sans', sans-serif", margin:0 }}>
                   {practiceQ.question}
                 </p>
                 <DiffBadge level={practiceQ.difficulty || "medium"} />
@@ -630,7 +630,7 @@ function QuestionBank({ question_bank, practiced, onToggle, theme, isDark }) {
       {/* Header */}
       <div style={{ padding:"14px 18px", background:theme.cardAlt||theme.card, borderBottom:`1px solid ${theme.border}` }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10, marginBottom:10 }}>
-          <span style={{ fontSize:14, fontWeight:700, color:theme.textStrong, fontFamily:"'Syne', sans-serif" }}>💬 Question Bank</span>
+          <span style={{ fontSize:14, fontWeight:700, color:theme.textStrong, fontFamily:"'Plus Jakarta Sans', sans-serif" }}>💬 Question Bank</span>
           <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
             <span style={{ fontSize:11, fontFamily:"'DM Mono', monospace", color: practicedCount === totalCount && totalCount > 0 ? "#16a34a" : theme.textMuted }}>
               Practiced: {practicedCount}/{totalCount}
@@ -661,7 +661,7 @@ function QuestionBank({ question_bank, practiced, onToggle, theme, isDark }) {
               return (
                 <div key={i} style={{ marginBottom:8, padding:"12px 14px", background:theme.background, borderRadius:8, border:`1px solid ${theme.border}`, borderLeft:`3px solid ${done?"#16a34a":theme.border}`, opacity:done?0.8:1 }}>
                   <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:10, marginBottom:6 }}>
-                    <p style={{ fontSize:13, fontWeight:700, color:done?theme.textMuted:theme.textStrong, lineHeight:1.5, fontFamily:"'Syne', sans-serif", margin:0 }}>{q.question}</p>
+                    <p style={{ fontSize:13, fontWeight:700, color:done?theme.textMuted:theme.textStrong, lineHeight:1.5, fontFamily:"'Plus Jakarta Sans', sans-serif", margin:0 }}>{q.question}</p>
                     <DiffBadge level={q.difficulty||"medium"} />
                   </div>
                   {q.answer_guide && <p style={{ fontSize:12, color:theme.textMuted, lineHeight:1.6, fontFamily:"'DM Mono', monospace", margin:"0 0 8px" }}>💡 {q.answer_guide}</p>}
@@ -685,7 +685,7 @@ function QuestionBank({ question_bank, practiced, onToggle, theme, isDark }) {
                   onClick={() => setOpenSections(prev => ({ ...prev, [sectionKey]: !prev[sectionKey] }))}
                   style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 16px", background:theme.card, border:"none", cursor:"pointer", gap:10 }}
                 >
-                  <span style={{ fontSize:13, fontWeight:700, color:theme.textStrong, fontFamily:"'Syne', sans-serif" }}>{meta.emoji} {meta.label}</span>
+                  <span style={{ fontSize:13, fontWeight:700, color:theme.textStrong, fontFamily:"'Plus Jakarta Sans', sans-serif" }}>{meta.emoji} {meta.label}</span>
                   <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                     <span style={{ fontSize:11, fontFamily:"'DM Mono', monospace", color:secPracticed===questions.length&&questions.length>0?"#16a34a":theme.textMuted }}>
                       {secPracticed}/{questions.length}
@@ -701,7 +701,7 @@ function QuestionBank({ question_bank, practiced, onToggle, theme, isDark }) {
                       return (
                         <div key={i} style={{ marginTop:10, padding:"12px 14px", background:done?theme.background+"80":theme.background, borderRadius:8, border:`1px solid ${theme.border}`, borderLeft:`3px solid ${done?"#16a34a":theme.border}`, opacity:done?0.8:1, transition:"all 0.2s" }}>
                           <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:10, marginBottom:6 }}>
-                            <p style={{ fontSize:13, fontWeight:700, color:done?theme.textMuted:theme.textStrong, lineHeight:1.5, fontFamily:"'Syne', sans-serif", margin:0 }}>{q.question}</p>
+                            <p style={{ fontSize:13, fontWeight:700, color:done?theme.textMuted:theme.textStrong, lineHeight:1.5, fontFamily:"'Plus Jakarta Sans', sans-serif", margin:0 }}>{q.question}</p>
                             <DiffBadge level={q.difficulty||"medium"} />
                           </div>
                           {q.answer_guide && <p style={{ fontSize:12, color:theme.textMuted, lineHeight:1.6, fontFamily:"'DM Mono', monospace", margin:"0 0 6px" }}>💡 {q.answer_guide}</p>}
@@ -797,7 +797,7 @@ Let's start — ask me the first question.`;
       <div style={{ maxWidth:520, margin:"0 auto", padding:"32px 0" }}>
         <div style={{ textAlign:"center", marginBottom:32 }}>
           <div style={{ fontSize:40, marginBottom:12 }}>🎯</div>
-          <h2 style={{ fontSize:22, fontWeight:800, color:theme.textStrong, marginBottom:8, fontFamily:"'Syne', sans-serif" }}>PrepCoach</h2>
+          <h2 style={{ fontSize:22, fontWeight:800, color:theme.textStrong, marginBottom:8, fontFamily:"'Plus Jakarta Sans', sans-serif" }}>PrepCoach</h2>
           <p style={{ color:theme.textMuted, fontSize:14, lineHeight:1.7 }}>
             Get a personalised day-by-day interview prep plan for{" "}
             <strong style={{ color:theme.textStrong }}>{jobTitle || "this role"}</strong>
@@ -827,7 +827,7 @@ Let's start — ask me the first question.`;
 
           {prepError && <p style={{ color:"#ef4444", fontSize:13, fontFamily:"'DM Mono', monospace", marginBottom:16 }}>{prepError}</p>}
 
-          <button onClick={onGenerate} disabled={!daysUntilInterview} style={{ width:"100%", background:daysUntilInterview?theme.accent:theme.border, color:daysUntilInterview?theme.background:theme.textFaint, border:"none", borderRadius:10, padding:"14px 0", fontSize:15, fontWeight:700, cursor:daysUntilInterview?"pointer":"not-allowed", fontFamily:"'Syne', sans-serif", transition:"all 0.15s" }}>
+          <button onClick={onGenerate} disabled={!daysUntilInterview} style={{ width:"100%", background:daysUntilInterview?theme.accent:theme.border, color:daysUntilInterview?theme.background:theme.textFaint, border:"none", borderRadius:10, padding:"14px 0", fontSize:15, fontWeight:700, cursor:daysUntilInterview?"pointer":"not-allowed", fontFamily:"'Plus Jakarta Sans', sans-serif", transition:"all 0.15s" }}>
             🚀 Generate My Prep Plan
           </button>
         </div>
@@ -868,7 +868,7 @@ Let's start — ask me the first question.`;
       {/* Emergency banner */}
       {isEmergency && emergency_tips && emergency_tips.length > 0 && (
         <div style={{ background:isDark?"#1c0a0a":"#fef2f2", border:"1px solid #ef444440", borderRadius:12, padding:"16px 18px", marginBottom:12 }}>
-          <p style={{ fontSize:13, fontWeight:700, color:"#ef4444", marginBottom:10, fontFamily:"'Syne', sans-serif" }}>
+          <p style={{ fontSize:13, fontWeight:700, color:"#ef4444", marginBottom:10, fontFamily:"'Plus Jakarta Sans', sans-serif" }}>
             🚨 Emergency Tips — {daysUntilInterview} day{daysUntilInterview!==1?"s":""} to go
           </p>
           <ul style={{ margin:0, paddingLeft:18 }}>
@@ -900,7 +900,7 @@ Let's start — ask me the first question.`;
       {!isEmergency && emergency_tips && emergency_tips.length > 0 && (
         <div style={{ border:`1px solid ${theme.border}`, borderRadius:12, overflow:"hidden", marginBottom:12 }}>
           <div style={{ padding:"14px 18px", background:theme.cardAlt||theme.card, borderBottom:`1px solid ${theme.border}` }}>
-            <span style={{ fontSize:14, fontWeight:700, color:theme.textStrong, fontFamily:"'Syne', sans-serif" }}>🚨 Emergency Tips</span>
+            <span style={{ fontSize:14, fontWeight:700, color:theme.textStrong, fontFamily:"'Plus Jakarta Sans', sans-serif" }}>🚨 Emergency Tips</span>
           </div>
           <div style={{ padding:"16px 18px" }}>
             <ul style={{ margin:0, paddingLeft:18 }}>

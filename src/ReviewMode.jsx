@@ -13,7 +13,7 @@ const RISK_CONFIG = {
 };
 
 function TypeBadge({ type }) {
-  const cfg = TYPE_CONFIG[type] || { label: type, color: "#6B7FA3" };
+  const cfg = TYPE_CONFIG[type] || { label: type, color: "#64748B" };
   return (
     <span style={{
       background: cfg.color + "18",
@@ -52,7 +52,7 @@ function ChangeCard({ change, accepted, onToggle }) {
           flex: 1,
           fontSize: 13,
           color: accepted ? theme.text : theme.textFaint,
-          fontFamily: "'Syne', sans-serif",
+          fontFamily: "'Plus Jakarta Sans', sans-serif",
           fontWeight: 600,
           lineHeight: 1.4,
         }}>{change.description}</p>
@@ -288,7 +288,7 @@ export default function ReviewMode({
             fontSize: 14,
             fontWeight: 700,
             cursor: acceptedCount > 0 && !loading ? "pointer" : "not-allowed",
-            fontFamily: "'Syne', sans-serif",
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
             transition: "all 0.2s",
             whiteSpace: "nowrap",
           }}

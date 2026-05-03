@@ -97,7 +97,7 @@ function SectionCard({ title, children }) {
     }}>
       <h2 style={{
         fontSize: 15, fontWeight: 700, color: theme.textStrong,
-        fontFamily: "'Syne', sans-serif", marginBottom: 22,
+        fontFamily: "'Plus Jakarta Sans', sans-serif", marginBottom: 22,
         paddingBottom: 14, borderBottom: `1px solid ${theme.border}`,
       }}>{title}</h2>
       {children}
@@ -120,7 +120,7 @@ function DeleteModal({ onClose, theme, isDark }) {
       <div style={{
         background: theme.card, border: `1px solid ${theme.border}`,
         borderRadius: 16, padding: "32px 28px", width: "100%", maxWidth: 420,
-        fontFamily: "'Syne', sans-serif",
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
       }}>
         <div style={{ fontSize: 36, textAlign: "center", marginBottom: 16 }}>⚠️</div>
         <h3 style={{ fontSize: 18, fontWeight: 800, color: "#DC2626", textAlign: "center", marginBottom: 10 }}>
@@ -140,10 +140,10 @@ function DeleteModal({ onClose, theme, isDark }) {
           onClick={onClose}
           style={{
             width: "100%", background: theme.accent,
-            color: isDark ? "#0A0F1E" : "#fff",
+            color: isDark ? "#0F172A" : "#fff",
             border: "none", borderRadius: 10, padding: "12px",
             fontSize: 14, fontWeight: 700, cursor: "pointer",
-            fontFamily: "'Syne', sans-serif",
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
           }}
         >
           OK, Got It
@@ -257,9 +257,9 @@ export default function AccountSettings({ session, onBack, onLogout }) {
     : "—";
 
   return (
-    <div style={{ minHeight: "100vh", background: theme.background, fontFamily: "'Syne', sans-serif", color: theme.text, transition: "background 0.3s, color 0.3s" }}>
+    <div style={{ minHeight: "100vh", background: theme.background, fontFamily: "'Plus Jakarta Sans', sans-serif", color: theme.text, transition: "background 0.3s, color 0.3s" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         textarea:focus, input:focus, button:focus { outline: none; }
         ::-webkit-scrollbar { width: 6px; }
@@ -337,10 +337,10 @@ export default function AccountSettings({ session, onBack, onLogout }) {
                   disabled={infoSaving}
                   style={{
                     background: infoSaving ? theme.border : theme.accent,
-                    color: infoSaving ? theme.textFaint : isDark ? "#0A0F1E" : "#fff",
+                    color: infoSaving ? theme.textFaint : isDark ? "#0F172A" : "#fff",
                     border: "none", borderRadius: 10, padding: "11px 26px",
                     fontSize: 13, fontWeight: 700, cursor: infoSaving ? "not-allowed" : "pointer",
-                    fontFamily: "'Syne', sans-serif", transition: "all 0.2s",
+                    fontFamily: "'Plus Jakarta Sans', sans-serif", transition: "all 0.2s",
                   }}
                 >
                   {infoSaving ? "Saving…" : "Save Changes"}
@@ -400,10 +400,10 @@ export default function AccountSettings({ session, onBack, onLogout }) {
                     disabled={pwSaving || confirmPwMismatch}
                     style={{
                       background: pwSaving || confirmPwMismatch ? theme.border : theme.accent,
-                      color: pwSaving || confirmPwMismatch ? theme.textFaint : isDark ? "#0A0F1E" : "#fff",
+                      color: pwSaving || confirmPwMismatch ? theme.textFaint : isDark ? "#0F172A" : "#fff",
                       border: "none", borderRadius: 10, padding: "11px 26px",
                       fontSize: 13, fontWeight: 700, cursor: pwSaving || confirmPwMismatch ? "not-allowed" : "pointer",
-                      fontFamily: "'Syne', sans-serif", transition: "all 0.2s",
+                      fontFamily: "'Plus Jakarta Sans', sans-serif", transition: "all 0.2s",
                     }}
                   >
                     {pwSaving ? "Updating…" : "Update Password"}
@@ -442,7 +442,7 @@ export default function AccountSettings({ session, onBack, onLogout }) {
                   background: "transparent", border: "1px solid #DC2626",
                   color: "#DC2626", borderRadius: 10, padding: "10px 22px",
                   fontSize: 13, fontWeight: 700, cursor: "pointer",
-                  fontFamily: "'Syne', sans-serif", transition: "all 0.2s",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif", transition: "all 0.2s",
                 }}
               >
                 🗑️ Delete Account
