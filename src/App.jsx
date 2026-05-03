@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { generateResumeHTML } from "./ResumeHTML";
 import { generateCoverLetterHTML } from "./CoverLetterHTML";
 import { supabase } from "./supabaseClient";
-import Login from "./Login";
+import Login, { PasswordReset } from "./Login";
+import AccountSettings from "./AccountSettings";
 import History from "./History";
 import Profile from "./Profile";
 import DiffView from "./DiffView";
@@ -400,7 +401,7 @@ const RESUME_TEMPLATES = [
   },
 ];
 
-function JobCraft({ session, onLogout, onShowHistory, onShowProfile }) {
+function JobCraft({ session, onLogout, onShowHistory, onShowProfile, onShowAccountSettings }) {
   const { theme, isDark, toggleTheme } = useTheme();
   const [step, setStep] = useState(0);
   const [resume, setResume] = useState("");
@@ -1429,6 +1430,7 @@ For each gap or neutral item in readiness_assessment, add a note field with:
           >{isDark ? "☀️" : "🌙"}</button>
           <button onClick={onShowProfile} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>👤 My Profile</button>
           <button onClick={onShowHistory} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>📋 History</button>
+          <button onClick={onShowAccountSettings} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>⚙️ Settings</button>
           <button onClick={onLogout} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>Sign Out</button>
         </div>
       </div>
@@ -1952,9 +1954,12 @@ For each gap or neutral item in readiness_assessment, add a note field with:
 }
 
 export default function App() {
-  const [session, setSession]           = useState(undefined);
-  const [showHistory, setShowHistory]   = useState(false);
-  const [showProfile, setShowProfile]   = useState(false);
+  const [session,              setSession]              = useState(undefined);
+  const [showHistory,          setShowHistory]          = useState(false);
+  const [showProfile,          setShowProfile]          = useState(false);
+  const [showAccountSettings,  setShowAccountSettings]  = useState(false);
+  const [showPasswordReset,    setShowPasswordReset]    = useState(false);
+  const [showEmailConfirmed,   setShowEmailConfirmed]   = useState(false);
   const [isDark, setIsDark]             = useState(() => {
     const saved = localStorage.getItem("jobcraft-theme");
     return saved ? saved === "dark" : true;
@@ -1971,12 +1976,30 @@ export default function App() {
   }
 
   useEffect(() => {
+    // Detect password-recovery and email-confirmation flows via URL hash.
+    // Supabase embeds type=recovery or type=signup in the fragment when
+    // redirecting back from email links.
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const hashType   = hashParams.get("type");
+    if (hashType === "recovery") {
+      setShowPasswordReset(true);
+    }
+    if (hashType === "signup" || hashType === "magiclink") {
+      setShowEmailConfirmed(true);
+      setTimeout(() => setShowEmailConfirmed(false), 5000);
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      // Primary trigger: Supabase SDK fires PASSWORD_RECOVERY after processing
+      // the recovery token, even if the hash check above happened first.
+      if (event === "PASSWORD_RECOVERY") {
+        setShowPasswordReset(true);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -1987,7 +2010,25 @@ export default function App() {
   }
 
   if (session === undefined) return null;
-  if (!session) return <Login />;
+
+  // Recovery flow: session exists (Supabase set it from the recovery token)
+  // but we must show the "Set New Password" screen, not the main app.
+  if (showPasswordReset && session) {
+    return (
+      <ThemeContext.Provider value={{ theme, isDark, toggleTheme }}>
+        <PasswordReset onDone={() => setShowPasswordReset(false)} />
+      </ThemeContext.Provider>
+    );
+  }
+
+  if (!session) {
+    return (
+      <Login
+        emailConfirmed={showEmailConfirmed}
+        onConfirmedDismiss={() => setShowEmailConfirmed(false)}
+      />
+    );
+  }
 
   return (
     <ThemeContext.Provider value={{ theme, isDark, toggleTheme }}>
@@ -2003,12 +2044,19 @@ export default function App() {
           onBack={() => setShowProfile(false)}
           onLogout={handleLogout}
         />
+      ) : showAccountSettings ? (
+        <AccountSettings
+          session={session}
+          onBack={() => setShowAccountSettings(false)}
+          onLogout={handleLogout}
+        />
       ) : (
         <JobCraft
           session={session}
           onLogout={handleLogout}
           onShowHistory={() => setShowHistory(true)}
           onShowProfile={() => setShowProfile(true)}
+          onShowAccountSettings={() => setShowAccountSettings(true)}
         />
       )}
     </ThemeContext.Provider>

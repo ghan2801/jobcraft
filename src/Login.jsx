@@ -1,15 +1,15 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { supabase } from "./supabaseClient";
 import { LIGHT_THEME, DARK_THEME } from "./ThemeContext";
 
-// ── Password strength helper ──────────────────────────────────────────────────
+// ── Password strength ─────────────────────────────────────────────────────────
 function getStrength(pw) {
   if (!pw) return null;
-  const long    = pw.length >= 10;
-  const medium  = pw.length >= 8;
-  const hasNum  = /[0-9]/.test(pw);
-  const hasCap  = /[A-Z]/.test(pw);
-  const hasSym  = /[^A-Za-z0-9]/.test(pw);
+  const long   = pw.length >= 10;
+  const medium = pw.length >= 8;
+  const hasNum = /[0-9]/.test(pw);
+  const hasCap = /[A-Z]/.test(pw);
+  const hasSym = /[^A-Za-z0-9]/.test(pw);
   if (long && hasNum && hasCap && hasSym) return "strong";
   if (medium && (hasNum || hasCap))       return "medium";
   return "weak";
@@ -43,7 +43,72 @@ function StrengthBar({ password }) {
   );
 }
 
-// ── Value props shown on the left panel ──────────────────────────────────────
+// ── Alert box ─────────────────────────────────────────────────────────────────
+// variant: "error" | "success" | "info"
+// alert: { text: string, action?: { label: string, fn: () => void } }
+function AlertBox({ alert, variant = "error", onDismiss }) {
+  if (!alert) return null;
+
+  const styles = {
+    error: {
+      bg: "#FEF2F2", border: "#FCA5A5", text: "#DC2626",
+      icon: "❌",
+    },
+    success: {
+      bg: "#F0FDF4", border: "#86EFAC", text: "#16A34A",
+      icon: "✅",
+    },
+    info: {
+      bg: "#EFF6FF", border: "#BFDBFE", text: "#1D4ED8",
+      icon: "ℹ️",
+    },
+  };
+  const s = styles[variant];
+
+  return (
+    <div style={{
+      background: s.bg, border: `1px solid ${s.border}`, borderRadius: 10,
+      padding: "12px 14px",
+      display: "flex", alignItems: "flex-start", gap: 10,
+    }}>
+      <span style={{ fontSize: 14, flexShrink: 0, lineHeight: 1.5 }}>{s.icon}</span>
+      <div style={{ flex: 1 }}>
+        <p style={{ fontSize: 13, color: s.text, fontFamily: "'DM Mono', monospace", lineHeight: 1.6, margin: 0 }}>
+          {alert.text}
+        </p>
+        {alert.action && (
+          <button
+            type="button"
+            onClick={alert.action.fn}
+            style={{
+              marginTop: 6, background: "none", border: "none", padding: 0,
+              color: s.text, fontSize: 12, fontFamily: "'DM Mono', monospace",
+              fontWeight: 700, cursor: "pointer", textDecoration: "underline",
+            }}
+          >
+            {alert.action.label}
+          </button>
+        )}
+      </div>
+      {onDismiss && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          style={{
+            background: "none", border: "none", padding: "0 2px",
+            color: s.text, fontSize: 15, cursor: "pointer", lineHeight: 1,
+            opacity: 0.6, flexShrink: 0,
+          }}
+          aria-label="Dismiss"
+        >
+          ×
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ── Value props ───────────────────────────────────────────────────────────────
 const VALUE_PROPS = [
   { emoji: "🎯", text: "Tailor your resume in 30 seconds" },
   { emoji: "📊", text: "Beat ATS filters every time" },
@@ -59,13 +124,16 @@ function Field({ label, type, value, onChange, placeholder, theme, children }) {
       <label style={{
         fontSize: 11, color: theme.textMuted, fontFamily: "'DM Mono', monospace",
         letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: 6,
-      }}>{label}</label>
+      }}>
+        {label}
+      </label>
       <input
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         required
+        autoComplete={type === "email" ? "email" : type === "password" ? "current-password" : "off"}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         style={{
@@ -81,65 +149,188 @@ function Field({ label, type, value, onChange, placeholder, theme, children }) {
   );
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
-export default function Login() {
-  const [isDark,       setIsDark]       = useState(false);  // default light
-  const [mode,         setMode]         = useState("login"); // "login" | "signup"
-  const [email,        setEmail]        = useState("");
-  const [password,     setPassword]     = useState("");
-  const [confirm,      setConfirm]      = useState("");
-  const [loading,      setLoading]      = useState(false);
-  const [error,        setError]        = useState("");
-  const [successMsg,   setSuccessMsg]   = useState("");
-  const [resetSent,    setResetSent]    = useState(false);
+// ── Error normalisation ───────────────────────────────────────────────────────
+// Maps raw Supabase / network error messages to user-friendly copies.
+// Returns { text, action? } — action is optional { label, fn }.
+function normalizeError(err, switchToLogin) {
+  const raw = (err?.message || "").toLowerCase().trim();
 
+  // ── Already registered ──
+  if (
+    raw.includes("user already registered") ||
+    raw.includes("already registered") ||
+    raw.includes("already exists")
+  ) {
+    return {
+      text: "An account with this email already exists. Please log in instead.",
+      action: { label: "Go to Login →", fn: switchToLogin },
+    };
+  }
+
+  // ── Wrong credentials ──
+  if (
+    raw.includes("invalid login credentials") ||
+    raw.includes("invalid credentials") ||
+    raw.includes("wrong password")
+  ) {
+    return { text: "Incorrect email or password. Please try again." };
+  }
+
+  // ── Email not confirmed ──
+  if (raw.includes("email not confirmed") || raw.includes("not confirmed")) {
+    return { text: "Please confirm your email first — check your inbox." };
+  }
+
+  // ── Weak / short password (Supabase server-side) ──
+  if (
+    (raw.includes("password") && raw.includes("6")) ||
+    raw.includes("password should be at least")
+  ) {
+    return { text: "Password must be at least 6 characters." };
+  }
+
+  // ── Rate limiting ──
+  if (raw.includes("rate limit") || raw.includes("too many requests") || raw.includes("over_email_send_rate_limit")) {
+    return { text: "Too many attempts. Please wait a minute and try again." };
+  }
+
+  // ── Network / fetch failure ──
+  if (
+    raw.includes("failed to fetch") ||
+    raw.includes("network") ||
+    raw.includes("networkerror") ||
+    err?.name === "TypeError"
+  ) {
+    return { text: "Connection error. Please check your internet and try again." };
+  }
+
+  // ── Signup disabled ──
+  if (raw.includes("signups not allowed") || raw.includes("signup disabled")) {
+    return { text: "New signups are temporarily disabled. Please try again later." };
+  }
+
+  // ── Fallback: use Supabase message but capitalise it ──
+  const msg = err?.message
+    ? err.message.charAt(0).toUpperCase() + err.message.slice(1)
+    : "Something went wrong. Please try again.";
+  return { text: msg };
+}
+
+// ── Client-side validation ────────────────────────────────────────────────────
+// Returns { text } on failure, null on pass.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+function validate(email, password, confirm, mode) {
+  if (!email.trim())               return { text: "Please enter your email address." };
+  if (!EMAIL_RE.test(email))       return { text: "Please enter a valid email address." };
+  if (!password)                   return { text: "Please enter a password." };
+  if (password.length < 6)         return { text: "Password must be at least 6 characters." };
+  if (mode === "signup") {
+    if (!confirm)                  return { text: "Please confirm your password." };
+    if (password !== confirm)      return { text: "Passwords don't match." };
+  }
+  return null;
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+export default function Login({ emailConfirmed = false, onConfirmedDismiss = () => {} }) {
+  const [isDark,     setIsDark]     = useState(false);   // default light
+  const [mode,       setMode]       = useState("login"); // "login" | "signup"
+  const [email,      setEmail]      = useState("");
+  const [password,   setPassword]   = useState("");
+  const [confirm,    setConfirm]    = useState("");
+  const [loading,    setLoading]    = useState(false);
+
+  // error / success are { text, action? } objects, or null
+  const [error,      setError]      = useState(null);
+  const [success,    setSuccess]    = useState(null);
+  const [resetSent,  setResetSent]  = useState(false);
+
+  const errorTimerRef = useRef(null);
   const theme = isDark ? DARK_THEME : LIGHT_THEME;
 
+  // Auto-dismiss email-confirmed banner after 5 seconds
+  useEffect(() => {
+    if (!emailConfirmed) return;
+    const t = setTimeout(onConfirmedDismiss, 5000);
+    return () => clearTimeout(t);
+  }, [emailConfirmed]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Alert helpers ──
+  function showError(text, action = null) {
+    clearTimeout(errorTimerRef.current);
+    setError({ text, action });
+    errorTimerRef.current = setTimeout(() => setError(null), 8000);
+  }
+
+  function dismissError() {
+    clearTimeout(errorTimerRef.current);
+    setError(null);
+  }
+
+  function showSuccess(text) {
+    setSuccess({ text });
+    setError(null);
+  }
+
+  // ── Mode switch ──
   function switchMode(next) {
     setMode(next);
-    setError("");
-    setSuccessMsg("");
+    dismissError();
+    setSuccess(null);
     setResetSent(false);
     setConfirm("");
     setPassword("");
   }
 
-  async function handleForgotPassword() {
-    if (!email) { setError("Enter your email above first."); return; }
-    setLoading(true);
-    setError("");
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin,
-    });
-    setLoading(false);
-    if (error) setError(error.message);
-    else setResetSent(true);
+  // ── Forgot password ──
+  function handleForgotPassword() {
+    dismissError();
+    setResetSent(true);
   }
 
+  // ── Submit ──
   async function handleSubmit(e) {
     e.preventDefault();
-    setError("");
-    setSuccessMsg("");
+    dismissError();
+    setSuccess(null);
     setResetSent(false);
 
-    if (mode === "signup") {
-      if (password !== confirm) { setError("Passwords don't match."); return; }
-      if (getStrength(password) === "weak") { setError("Password too weak — use 8+ characters."); return; }
+    // Client-side checks first — no API call needed
+    const validationErr = validate(email, password, confirm, mode);
+    if (validationErr) {
+      showError(validationErr.text);
+      return;
     }
 
     setLoading(true);
-    if (mode === "login") {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setError(error.message);
-    } else {
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) setError(error.message);
-      else setSuccessMsg("Account created! Check your email to confirm, then log in.");
+    try {
+      if (mode === "login") {
+        const { error: err } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (err) showError(normalizeError(err, () => switchMode("login")).text);
+      } else {
+        const { error: err } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+        });
+        if (err) {
+          const normalized = normalizeError(err, () => switchMode("login"));
+          showError(normalized.text, normalized.action ?? null);
+        } else {
+          showSuccess("Account created! Check your email to confirm, then log in.");
+        }
+      }
+    } catch (e) {
+      showError(normalizeError(e, () => switchMode("login")).text);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
-  const confirmMismatch = mode === "signup" && confirm && confirm !== password;
+  const confirmMismatch = mode === "signup" && confirm.length > 0 && confirm !== password;
 
   return (
     <div style={{
@@ -154,10 +345,15 @@ export default function Login() {
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         .lg-submit:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
-        .lg-link:hover { text-decoration: underline; }
-        .lg-toggle:hover { color: ${theme.accent} !important; }
+        .lg-link:hover { text-decoration: underline !important; }
+        .lg-toggle:hover { opacity: 0.8; }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-thumb { background: ${theme.border}; border-radius: 2px; }
+        @media (max-width: 640px) {
+          .lg-left-panel  { display: none !important; }
+          .lg-right-panel { border-radius: 20px !important; }
+          .lg-mobile-logo { display: flex !important; }
+        }
       `}</style>
 
       {/* Theme toggle — fixed top-right */}
@@ -175,29 +371,21 @@ export default function Login() {
       {/* ── Two-panel card ── */}
       <div style={{
         display: "flex", width: "100%", maxWidth: 860,
-        background: theme.card,
-        borderRadius: 20,
+        background: theme.card, borderRadius: 20,
         boxShadow: isDark ? "0 24px 64px #000000A0" : "0 16px 48px #00000018",
-        overflow: "hidden",
-        border: `1px solid ${theme.border}`,
+        overflow: "hidden", border: `1px solid ${theme.border}`,
       }}>
 
-        {/* ── Left panel — value props ── */}
-        <div style={{
-          flex: "0 0 340px",
-          background: isDark
-            ? "linear-gradient(160deg, #0D1A2F 0%, #0A1628 100%)"
-            : "linear-gradient(160deg, #0F172A 0%, #1E3A5F 100%)",
-          padding: "52px 40px",
-          display: "flex", flexDirection: "column", justifyContent: "center",
-          // Hidden on mobile via a media query workaround using inline style only
-        }} className="lg-left-panel">
-          <style>{`
-            @media (max-width: 640px) { .lg-left-panel { display: none !important; } }
-            @media (max-width: 640px) { .lg-right-panel { border-radius: 20px !important; } }
-          `}</style>
-
-          {/* Logo */}
+        {/* ── Left panel ── */}
+        <div
+          className="lg-left-panel"
+          style={{
+            flex: "0 0 340px",
+            background: "linear-gradient(160deg, #0F172A 0%, #1E3A5F 100%)",
+            padding: "52px 40px",
+            display: "flex", flexDirection: "column", justifyContent: "center",
+          }}
+        >
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 40 }}>
             <div style={{ width: 38, height: 38, background: theme.accent, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>⚡</div>
             <span style={{ fontSize: 22, fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.02em" }}>
@@ -215,11 +403,7 @@ export default function Login() {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {VALUE_PROPS.map(({ emoji, text }) => (
               <div key={text} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{
-                  width: 36, height: 36, flexShrink: 0,
-                  background: theme.accent + "18", border: `1px solid ${theme.accent}30`,
-                  borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17,
-                }}>
+                <div style={{ width: 36, height: 36, flexShrink: 0, background: theme.accent + "18", border: `1px solid ${theme.accent}30`, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>
                   {emoji}
                 </div>
                 <span style={{ fontSize: 13, color: "#CBD5E1", fontFamily: "'DM Mono', monospace", lineHeight: 1.4 }}>
@@ -238,19 +422,31 @@ export default function Login() {
         </div>
 
         {/* ── Right panel — form ── */}
-        <div className="lg-right-panel" style={{ flex: 1, padding: "52px 44px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+        <div
+          className="lg-right-panel"
+          style={{ flex: 1, padding: "52px 44px", display: "flex", flexDirection: "column", justifyContent: "center" }}
+        >
+          {/* Mobile-only logo */}
+          <div className="lg-mobile-logo" style={{ display: "none", alignItems: "center", gap: 10, marginBottom: 24 }}>
+            <div style={{ width: 32, height: 32, background: theme.accent, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⚡</div>
+            <span style={{ fontSize: 20, fontWeight: 800, color: theme.textStrong, letterSpacing: "-0.02em" }}>
+              Job<span style={{ color: theme.accent }}>Craft</span>
+            </span>
+          </div>
 
-          {/* Header */}
-          <div style={{ marginBottom: 32 }}>
-            {/* Mobile-only logo */}
-            <div className="lg-mobile-logo" style={{ display: "none", alignItems: "center", gap: 10, marginBottom: 24 }}>
-              <style>{`.lg-mobile-logo { display: none !important; } @media (max-width: 640px) { .lg-mobile-logo { display: flex !important; } }`}</style>
-              <div style={{ width: 32, height: 32, background: theme.accent, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⚡</div>
-              <span style={{ fontSize: 20, fontWeight: 800, color: theme.textStrong, letterSpacing: "-0.02em" }}>
-                Job<span style={{ color: theme.accent }}>Craft</span>
-              </span>
+          {/* Email-confirmed banner */}
+          {emailConfirmed && (
+            <div style={{ marginBottom: 20 }}>
+              <AlertBox
+                alert={{ text: "Email confirmed! You can now log in." }}
+                variant="success"
+                onDismiss={onConfirmedDismiss}
+              />
             </div>
+          )}
 
+          {/* Heading */}
+          <div style={{ marginBottom: 32 }}>
             <h1 style={{ fontSize: 22, fontWeight: 800, color: theme.textStrong, letterSpacing: "-0.02em", marginBottom: 4 }}>
               {mode === "login" ? "Welcome back" : "Create account"}
             </h1>
@@ -260,9 +456,19 @@ export default function Login() {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            <Field label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" theme={theme} />
+          <form onSubmit={handleSubmit} noValidate style={{ display: "flex", flexDirection: "column", gap: 18 }}>
 
+            {/* Email */}
+            <Field
+              label="Email"
+              type="email"
+              value={email}
+              onChange={v => { setEmail(v); dismissError(); }}
+              placeholder="you@example.com"
+              theme={theme}
+            />
+
+            {/* Password */}
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                 <label style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em", textTransform: "uppercase" }}>
@@ -274,7 +480,7 @@ export default function Login() {
                     className="lg-link"
                     onClick={handleForgotPassword}
                     disabled={loading}
-                    style={{ background: "none", border: "none", color: theme.accent, fontSize: 11, fontFamily: "'DM Mono', monospace", cursor: "pointer", padding: 0, textDecoration: "none" }}
+                    style={{ background: "none", border: "none", color: theme.accent, fontSize: 11, fontFamily: "'DM Mono', monospace", cursor: "pointer", padding: 0 }}
                   >
                     Forgot password?
                   </button>
@@ -283,9 +489,12 @@ export default function Login() {
               <input
                 type="password"
                 value={password}
-                onChange={e => setPassword(e.target.value)}
+                onChange={e => { setPassword(e.target.value); dismissError(); }}
                 required
                 placeholder="••••••••"
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
+                onFocus={e => (e.target.style.borderColor = theme.accent)}
+                onBlur={e => (e.target.style.borderColor = theme.border)}
                 style={{
                   width: "100%", background: theme.inputBg,
                   border: `1px solid ${theme.border}`,
@@ -293,8 +502,6 @@ export default function Login() {
                   fontSize: 14, fontFamily: "'DM Mono', monospace",
                   outline: "none", transition: "border-color 0.2s",
                 }}
-                onFocus={e => e.target.style.borderColor = theme.accent}
-                onBlur={e => e.target.style.borderColor = theme.border}
               />
               {mode === "signup" && <StrengthBar password={password} />}
             </div>
@@ -308,9 +515,12 @@ export default function Login() {
                 <input
                   type="password"
                   value={confirm}
-                  onChange={e => setConfirm(e.target.value)}
+                  onChange={e => { setConfirm(e.target.value); dismissError(); }}
                   required
                   placeholder="••••••••"
+                  autoComplete="new-password"
+                  onFocus={e => { if (!confirmMismatch) e.target.style.borderColor = theme.accent; }}
+                  onBlur={e => { e.target.style.borderColor = confirmMismatch ? "#ef4444" : theme.border; }}
                   style={{
                     width: "100%", background: theme.inputBg,
                     border: `1px solid ${confirmMismatch ? "#ef4444" : theme.border}`,
@@ -318,40 +528,33 @@ export default function Login() {
                     fontSize: 14, fontFamily: "'DM Mono', monospace",
                     outline: "none", transition: "border-color 0.2s",
                   }}
-                  onFocus={e => { if (!confirmMismatch) e.target.style.borderColor = theme.accent; }}
-                  onBlur={e => { e.target.style.borderColor = confirmMismatch ? "#ef4444" : theme.border; }}
                 />
                 {confirmMismatch && (
-                  <p style={{ fontSize: 11, color: "#ef4444", fontFamily: "'DM Mono', monospace", marginTop: 5 }}>
+                  <p style={{ fontSize: 11, color: "#DC2626", fontFamily: "'DM Mono', monospace", marginTop: 5 }}>
                     Passwords don't match
                   </p>
                 )}
               </div>
             )}
 
-            {/* Reset sent message */}
+            {/* Forgot-password info */}
             {resetSent && (
-              <div style={{ padding: "10px 14px", background: theme.accent + "15", border: `1px solid ${theme.accent}40`, borderRadius: 8 }}>
-                <p style={{ fontSize: 12, color: theme.accent, fontFamily: "'DM Mono', monospace" }}>
-                  ✅ Reset link sent — check your email.
-                </p>
-              </div>
+              <AlertBox
+                alert={{
+                  text: "Password reset via email is being set up. For now, please contact us at ghanshyamrajput84@gmail.com and we'll reset it manually.",
+                }}
+                variant="info"
+                onDismiss={() => setResetSent(false)}
+              />
             )}
 
             {/* Error */}
-            {error && (
-              <div style={{ padding: "10px 14px", background: "#ef444412", border: "1px solid #ef444430", borderRadius: 8 }}>
-                <p style={{ fontSize: 12, color: "#ef4444", fontFamily: "'DM Mono', monospace" }}>{error}</p>
-              </div>
-            )}
+            <AlertBox alert={error} variant="error" onDismiss={dismissError} />
 
             {/* Success */}
-            {successMsg && (
-              <div style={{ padding: "10px 14px", background: theme.accent + "15", border: `1px solid ${theme.accent}40`, borderRadius: 8 }}>
-                <p style={{ fontSize: 12, color: theme.accent, fontFamily: "'DM Mono', monospace" }}>{successMsg}</p>
-              </div>
-            )}
+            <AlertBox alert={success} variant="success" onDismiss={() => setSuccess(null)} />
 
+            {/* Submit */}
             <button
               type="submit"
               className="lg-submit"
@@ -370,7 +573,7 @@ export default function Login() {
             </button>
           </form>
 
-          {/* Toggle */}
+          {/* Mode toggle */}
           <p style={{ textAlign: "center", marginTop: 24, fontSize: 13, color: theme.textMuted, fontFamily: "'DM Mono', monospace" }}>
             {mode === "login" ? "Don't have an account? " : "Already have an account? "}
             <button
@@ -386,6 +589,211 @@ export default function Login() {
             </button>
           </p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Password Reset ────────────────────────────────────────────────────────────
+// Rendered by App.jsx when Supabase fires the PASSWORD_RECOVERY auth event.
+// Calls onDone() after signing out so App falls back to <Login>.
+export function PasswordReset({ onDone }) {
+  const [isDark, setIsDark] = useState(() => {
+    const saved = localStorage.getItem("jobcraft-theme");
+    return saved ? saved === "dark" : false; // default light for auth screens
+  });
+  const [newPw,      setNewPw]      = useState("");
+  const [confirmPw,  setConfirmPw]  = useState("");
+  const [loading,    setLoading]    = useState(false);
+  const [error,      setError]      = useState(null);   // { text } | null
+  const [success,    setSuccess]    = useState(false);
+  const errorTimerRef = useRef(null);
+  const theme = isDark ? DARK_THEME : LIGHT_THEME;
+
+  function showError(text) {
+    clearTimeout(errorTimerRef.current);
+    setError({ text });
+    errorTimerRef.current = setTimeout(() => setError(null), 8000);
+  }
+  function dismissError() {
+    clearTimeout(errorTimerRef.current);
+    setError(null);
+  }
+
+  const confirmMismatch = confirmPw.length > 0 && confirmPw !== newPw;
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    dismissError();
+    if (!newPw)             { showError("Please enter a new password.");         return; }
+    if (newPw.length < 6)   { showError("Password must be at least 6 characters."); return; }
+    if (!confirmPw)         { showError("Please confirm your new password.");    return; }
+    if (newPw !== confirmPw){ showError("Passwords don't match.");               return; }
+
+    setLoading(true);
+    try {
+      const { error: err } = await supabase.auth.updateUser({ password: newPw });
+      if (err) {
+        showError(err.message || "Failed to update password. Please try again.");
+      } else {
+        setSuccess(true);
+        setTimeout(async () => {
+          await supabase.auth.signOut();
+          window.history.replaceState(null, "", window.location.pathname);
+          onDone();
+        }, 2000);
+      }
+    } catch {
+      showError("Connection error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const accentColor = isDark ? DARK_THEME.accent : LIGHT_THEME.accent;
+
+  return (
+    <div style={{
+      minHeight: "100vh",
+      background: isDark ? theme.background : "#EEF2FF",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontFamily: "'Syne', sans-serif", color: theme.text,
+      padding: "24px 16px",
+      transition: "background 0.3s, color 0.3s",
+    }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        .pr-submit:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+      `}</style>
+
+      {/* Theme toggle */}
+      <button
+        onClick={() => setIsDark(d => !d)}
+        title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+        style={{
+          position: "fixed", top: 20, right: 20, zIndex: 100,
+          background: theme.card, border: `1px solid ${theme.border}`,
+          borderRadius: 8, padding: "6px 10px", fontSize: 16,
+          cursor: "pointer", lineHeight: 1, boxShadow: "0 2px 8px #00000018",
+        }}
+      >{isDark ? "☀️" : "🌙"}</button>
+
+      <div style={{
+        width: "100%", maxWidth: 420,
+        background: theme.card, borderRadius: 20,
+        boxShadow: isDark ? "0 24px 64px #000000A0" : "0 16px 48px #00000018",
+        border: `1px solid ${theme.border}`,
+        padding: "48px 44px",
+      }}>
+        {/* Logo */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32 }}>
+          <div style={{ width: 36, height: 36, background: accentColor, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>⚡</div>
+          <span style={{ fontSize: 20, fontWeight: 800, color: theme.textStrong, letterSpacing: "-0.02em" }}>
+            Job<span style={{ color: accentColor }}>Craft</span>
+          </span>
+        </div>
+
+        {/* Heading */}
+        <div style={{ marginBottom: 28 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: theme.textStrong, letterSpacing: "-0.02em", marginBottom: 4 }}>
+            Set New Password
+          </h1>
+          <p style={{ fontSize: 13, color: theme.textMuted, fontFamily: "'DM Mono', monospace" }}>
+            Choose a strong password for your account.
+          </p>
+        </div>
+
+        {success ? (
+          /* Success state */
+          <div style={{ textAlign: "center", padding: "12px 0 8px" }}>
+            <div style={{ fontSize: 44, marginBottom: 16 }}>✅</div>
+            <p style={{ fontSize: 15, fontWeight: 700, color: "#16A34A", fontFamily: "'Syne', sans-serif", marginBottom: 8 }}>
+              Password updated!
+            </p>
+            <p style={{ fontSize: 13, color: theme.textMuted, fontFamily: "'DM Mono', monospace", lineHeight: 1.6 }}>
+              Redirecting you to login…
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} noValidate style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+
+            {/* New password */}
+            <div>
+              <label style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>
+                New Password
+              </label>
+              <input
+                type="password"
+                value={newPw}
+                onChange={e => { setNewPw(e.target.value); dismissError(); }}
+                required
+                placeholder="••••••••"
+                autoComplete="new-password"
+                onFocus={e => (e.target.style.borderColor = accentColor)}
+                onBlur={e => (e.target.style.borderColor = theme.border)}
+                style={{
+                  width: "100%", background: theme.inputBg,
+                  border: `1px solid ${theme.border}`, borderRadius: 10,
+                  padding: "11px 14px", color: theme.text,
+                  fontSize: 14, fontFamily: "'DM Mono', monospace",
+                  outline: "none", transition: "border-color 0.2s",
+                }}
+              />
+              <StrengthBar password={newPw} />
+            </div>
+
+            {/* Confirm password */}
+            <div>
+              <label style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: 6 }}>
+                Confirm New Password
+              </label>
+              <input
+                type="password"
+                value={confirmPw}
+                onChange={e => { setConfirmPw(e.target.value); dismissError(); }}
+                required
+                placeholder="••••••••"
+                autoComplete="new-password"
+                onFocus={e => { if (!confirmMismatch) e.target.style.borderColor = accentColor; }}
+                onBlur={e => { e.target.style.borderColor = confirmMismatch ? "#ef4444" : theme.border; }}
+                style={{
+                  width: "100%", background: theme.inputBg,
+                  border: `1px solid ${confirmMismatch ? "#ef4444" : theme.border}`,
+                  borderRadius: 10, padding: "11px 14px", color: theme.text,
+                  fontSize: 14, fontFamily: "'DM Mono', monospace",
+                  outline: "none", transition: "border-color 0.2s",
+                }}
+              />
+              {confirmMismatch && (
+                <p style={{ fontSize: 11, color: "#DC2626", fontFamily: "'DM Mono', monospace", marginTop: 5 }}>
+                  Passwords don't match
+                </p>
+              )}
+            </div>
+
+            {/* Error */}
+            <AlertBox alert={error} variant="error" onDismiss={dismissError} />
+
+            {/* Submit */}
+            <button
+              type="submit"
+              className="pr-submit"
+              disabled={loading || confirmMismatch}
+              style={{
+                background: loading || confirmMismatch ? theme.border : accentColor,
+                color: loading || confirmMismatch ? theme.textFaint : isDark ? "#0A0F1E" : "#FFFFFF",
+                border: "none", borderRadius: 10, padding: "13px",
+                fontSize: 15, fontWeight: 700,
+                cursor: loading || confirmMismatch ? "not-allowed" : "pointer",
+                fontFamily: "'Syne', sans-serif",
+                transition: "all 0.2s",
+              }}
+            >
+              {loading ? "Updating…" : "Update Password"}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );
