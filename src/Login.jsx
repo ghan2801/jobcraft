@@ -284,9 +284,31 @@ export default function Login({ emailConfirmed = false, onConfirmedDismiss = () 
   }
 
   // ── Forgot password ──
-  function handleForgotPassword() {
+  async function handleForgotPassword() {
     dismissError();
-    setResetSent(true);
+    if (!email.trim()) {
+      showError("Enter your email address above first.");
+      return;
+    }
+    if (!EMAIL_RE.test(email)) {
+      showError("Please enter a valid email address.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: "https://jobvate.com",
+      });
+      if (err) {
+        showError(normalizeError(err, () => switchMode("login")).text);
+      } else {
+        setResetSent(true);
+      }
+    } catch (e) {
+      showError(normalizeError(e, () => switchMode("login")).text);
+    } finally {
+      setLoading(false);
+    }
   }
 
   // ── Submit ──
@@ -537,13 +559,13 @@ export default function Login({ emailConfirmed = false, onConfirmedDismiss = () 
               </div>
             )}
 
-            {/* Forgot-password info */}
+            {/* Password reset sent */}
             {resetSent && (
               <AlertBox
                 alert={{
-                  text: "Password reset via email is being set up. For now, please contact us at ghanshyamrajput84@gmail.com and we'll reset it manually.",
+                  text: "Password reset email sent! Check your inbox and click the link to set a new password.",
                 }}
-                variant="info"
+                variant="success"
                 onDismiss={() => setResetSent(false)}
               />
             )}
