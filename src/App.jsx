@@ -401,7 +401,7 @@ const RESUME_TEMPLATES = [
   },
 ];
 
-function JobCraft({ session, onLogout, onShowHistory, onShowProfile, onShowAccountSettings }) {
+function Jobvate({ session, onLogout, onShowHistory, onShowProfile, onShowAccountSettings }) {
   const { theme, isDark, toggleTheme } = useTheme();
   const [step, setStep] = useState(0);
   const [resume, setResume] = useState("");
@@ -1419,10 +1419,10 @@ For each gap or neutral item in readiness_assessment, add a note field with:
           }}
         >
           <div style={{ width: 32, height: 32, background: theme.accent, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⚡</div>
-          <span style={{ fontSize: 20, fontWeight: 800, color: theme.textStrong, letterSpacing: "-0.02em" }}>Job<span style={{ color: theme.accent }}>Craft</span></span>
+          <span style={{ fontSize: 20, fontWeight: 800, color: theme.textStrong, letterSpacing: "-0.02em" }}>Job<span style={{ color: theme.accent }}>vate</span></span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Tag>Mission HIRED 🔥</Tag>
+          <Tag>Jobvate</Tag>
           <button
             onClick={toggleTheme}
             title={isDark ? "Switch to light mode" : "Switch to dark mode"}
@@ -1469,7 +1469,7 @@ For each gap or neutral item in readiness_assessment, add a note field with:
             {showWelcome && (
               <div style={{ background: isDark ? "#0D1F14" : "#F0FDF4", border: `1px solid ${theme.accent}35`, borderRadius: 12, padding: "18px 24px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
                 <div>
-                  <p style={{ color: theme.textStrong, fontWeight: 700, fontSize: 15, marginBottom: 4 }}>Welcome to JobCraft! 👋</p>
+                  <p style={{ color: theme.textStrong, fontWeight: 700, fontSize: 15, marginBottom: 4 }}>Welcome to Jobvate! 👋</p>
                   <p style={{ color: theme.textMuted, fontSize: 13, lineHeight: 1.6 }}>Save your base resume in your profile so it auto-loads every session.</p>
                 </div>
                 <button
@@ -1947,7 +1947,7 @@ For each gap or neutral item in readiness_assessment, add a note field with:
           </div>
         )}
 
-        <p style={{ textAlign: "center", fontSize: 11, color: theme.textFaint, marginTop: 48, fontFamily: "'DM Mono', monospace" }}>© 2026 JobCraft AI · All rights reserved</p>
+        <p style={{ textAlign: "center", fontSize: 11, color: theme.textFaint, marginTop: 48, fontFamily: "'DM Mono', monospace" }}>© 2026 Jobvate · All rights reserved</p>
       </div>
     </div>
   );
@@ -1961,7 +1961,7 @@ export default function App() {
   const [showPasswordReset,    setShowPasswordReset]    = useState(false);
   const [showEmailConfirmed,   setShowEmailConfirmed]   = useState(false);
   const [isDark, setIsDark]             = useState(() => {
-    const saved = localStorage.getItem("jobcraft-theme");
+    const saved = localStorage.getItem("jobvate-theme");
     return saved ? saved === "dark" : true;
   });
 
@@ -1970,7 +1970,7 @@ export default function App() {
   function toggleTheme() {
     setIsDark(prev => {
       const next = !prev;
-      localStorage.setItem("jobcraft-theme", next ? "dark" : "light");
+      localStorage.setItem("jobvate-theme", next ? "dark" : "light");
       return next;
     });
   }
@@ -2051,7 +2051,7 @@ export default function App() {
           onLogout={handleLogout}
         />
       ) : (
-        <JobCraft
+        <Jobvate
           session={session}
           onLogout={handleLogout}
           onShowHistory={() => setShowHistory(true)}

@@ -271,7 +271,7 @@ export default function Profile({ session, onBack, onLogout }) {
         )}
 
         <p style={{ textAlign: "center", fontSize: 11, color: theme.textFaint, marginTop: 48, fontFamily: "'DM Mono', monospace" }}>
-          Mission HIRED 🔥 · Built by Ghanshyam · Powered by Claude
+          Jobvate · Built by Ghanshyam · Powered by Claude
         </p>
       </div>
     </div>

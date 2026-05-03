@@ -411,7 +411,7 @@ export default function Login({ emailConfirmed = false, onConfirmedDismiss = () 
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 40 }}>
             <div style={{ width: 38, height: 38, background: theme.accent, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>⚡</div>
             <span style={{ fontSize: 22, fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.02em" }}>
-              Job<span style={{ color: theme.accent }}>Craft</span>
+              Job<span style={{ color: theme.accent }}>vate</span>
             </span>
           </div>
 
@@ -437,7 +437,7 @@ export default function Login({ emailConfirmed = false, onConfirmedDismiss = () 
 
           <div style={{ marginTop: 44, padding: "16px 18px", background: "#ffffff08", borderRadius: 12, border: "1px solid #ffffff12" }}>
             <p style={{ fontSize: 12, color: "#94A3B8", fontFamily: "'DM Mono', monospace", lineHeight: 1.6, fontStyle: "italic" }}>
-              "JobCraft helped me go from 12% to 89% ATS score — got the interview within a week."
+              "Jobvate helped me go from 12% to 89% ATS score — got the interview within a week."
             </p>
             <p style={{ fontSize: 11, color: "#64748B", fontFamily: "'DM Mono', monospace", marginTop: 8 }}>— Early user feedback</p>
           </div>
@@ -452,7 +452,7 @@ export default function Login({ emailConfirmed = false, onConfirmedDismiss = () 
           <div className="lg-mobile-logo" style={{ display: "none", alignItems: "center", gap: 10, marginBottom: 24 }}>
             <div style={{ width: 32, height: 32, background: theme.accent, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⚡</div>
             <span style={{ fontSize: 20, fontWeight: 800, color: theme.textStrong, letterSpacing: "-0.02em" }}>
-              Job<span style={{ color: theme.accent }}>Craft</span>
+              Job<span style={{ color: theme.accent }}>vate</span>
             </span>
           </div>
 
@@ -473,7 +473,7 @@ export default function Login({ emailConfirmed = false, onConfirmedDismiss = () 
               {mode === "login" ? "Welcome back" : "Create account"}
             </h1>
             <p style={{ fontSize: 13, color: theme.textMuted, fontFamily: "'DM Mono', monospace" }}>
-              {mode === "login" ? "Sign in to continue to JobCraft" : "Free forever · No credit card needed"}
+              {mode === "login" ? "Sign in to continue to Jobvate" : "Free forever · No credit card needed"}
             </p>
           </div>
 
@@ -621,7 +621,7 @@ export default function Login({ emailConfirmed = false, onConfirmedDismiss = () 
 // Calls onDone() after signing out so App falls back to <Login>.
 export function PasswordReset({ onDone }) {
   const [isDark, setIsDark] = useState(() => {
-    const saved = localStorage.getItem("jobcraft-theme");
+    const saved = localStorage.getItem("jobvate-theme");
     return saved ? saved === "dark" : false; // default light for auth screens
   });
   const [newPw,      setNewPw]      = useState("");
