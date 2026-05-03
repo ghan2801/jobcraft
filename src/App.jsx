@@ -17,6 +17,147 @@ import mammoth from "mammoth";
 import pdfjsWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 
+// ── FeedbackModal ────────────────────────────────────────────────────────────
+function FeedbackModal({ session, onClose, onSubmitted, page = "main" }) {
+  const isDark = localStorage.getItem("jobvate-theme") !== "light";
+  const bg     = isDark ? "#0F172A" : "#F8FAFC";
+  const card   = isDark ? "#1E293B" : "#FFFFFF";
+  const border = isDark ? "#334155" : "#E2E8F0";
+  const text   = isDark ? "#CBD5E1" : "#334155";
+  const muted  = isDark ? "#64748B" : "#64748B";
+  const accent = isDark ? "#3B82F6" : "#2563EB";
+  const strong = isDark ? "#FFFFFF"  : "#0F172A";
+
+  const EMOJIS = ["😞", "😐", "🙂", "😊", "🤩"];
+  const [rating,  setRating]  = useState(null);
+  const [message, setMessage] = useState("");
+  const [status,  setStatus]  = useState("idle"); // idle | submitting | success | error
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!message.trim()) return;
+    setStatus("submitting");
+    const { error } = await supabase.from("feedback").insert([{
+      user_id:    session?.user?.id   ?? null,
+      user_email: session?.user?.email ?? null,
+      rating:     rating !== null ? rating + 1 : null,
+      message:    message.trim(),
+      page,
+    }]);
+    if (error) { setStatus("error"); return; }
+    setStatus("success");
+    onSubmitted();
+    setTimeout(onClose, 2000);
+  }
+
+  return (
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        zIndex: 9999, padding: 24,
+      }}
+    >
+      <div style={{
+        background: card, border: `1px solid ${border}`,
+        borderRadius: 16, padding: 28, width: "100%", maxWidth: 420,
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
+        boxShadow: "0 24px 64px rgba(0,0,0,0.4)",
+      }}>
+        {status === "success" ? (
+          <div style={{ textAlign: "center", padding: "16px 0 8px" }}>
+            <div style={{ fontSize: 48, marginBottom: 14 }}>🙏</div>
+            <p style={{ fontSize: 16, fontWeight: 700, color: "#16A34A", marginBottom: 8 }}>Thank you!</p>
+            <p style={{ fontSize: 13, color: muted, fontFamily: "'DM Mono', monospace", lineHeight: 1.7 }}>
+              Your feedback helps us build a better Jobvate.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+              <div>
+                <h2 style={{ fontSize: 17, fontWeight: 800, color: strong, marginBottom: 4 }}>Share Your Feedback 💬</h2>
+                <p style={{ fontSize: 12, color: muted, fontFamily: "'DM Mono', monospace" }}>Help us improve Jobvate</p>
+              </div>
+              <button onClick={onClose} style={{ background: "none", border: "none", color: muted, fontSize: 20, cursor: "pointer", lineHeight: 1, padding: "0 2px" }}>×</button>
+            </div>
+
+            {/* Rating */}
+            <div style={{ marginBottom: 18 }}>
+              <p style={{ fontSize: 11, color: muted, fontFamily: "'DM Mono', monospace", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>How's your experience?</p>
+              <div style={{ display: "flex", gap: 8 }}>
+                {EMOJIS.map((emoji, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setRating(i)}
+                    style={{
+                      flex: 1, fontSize: 22, padding: "8px 0",
+                      background: rating === i ? accent + "15" : "transparent",
+                      border: `1px solid ${rating === i ? accent : border}`,
+                      borderRadius: 10, cursor: "pointer",
+                      transition: "all 0.15s",
+                      transform: rating === i ? "scale(1.1)" : "scale(1)",
+                    }}
+                  >{emoji}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Textarea */}
+            <form onSubmit={handleSubmit}>
+              <textarea
+                value={message}
+                onChange={e => setMessage(e.target.value)}
+                placeholder={"What do you love?\nWhat could be better?\nWhat's missing?"}
+                rows={5}
+                style={{
+                  width: "100%", minHeight: 120, background: isDark ? "#0F172A" : "#F1F5F9",
+                  border: `1px solid ${border}`, borderRadius: 10, padding: "12px 14px",
+                  color: text, fontSize: 13, fontFamily: "'DM Mono', monospace",
+                  resize: "vertical", outline: "none", lineHeight: 1.7,
+                  transition: "border-color 0.2s",
+                }}
+                onFocus={e  => { e.target.style.borderColor = accent; }}
+                onBlur={e   => { e.target.style.borderColor = border; }}
+              />
+              {status === "error" && (
+                <p style={{ fontSize: 12, color: "#DC2626", fontFamily: "'DM Mono', monospace", marginTop: 6 }}>
+                  Failed to send. Please try again.
+                </p>
+              )}
+              <button
+                type="submit"
+                disabled={!message.trim() || status === "submitting"}
+                style={{
+                  width: "100%", marginTop: 14,
+                  background: !message.trim() || status === "submitting" ? border : accent,
+                  color: !message.trim() || status === "submitting" ? muted : "#fff",
+                  border: "none", borderRadius: 10, padding: "12px",
+                  fontSize: 14, fontWeight: 700, cursor: !message.trim() ? "not-allowed" : "pointer",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif", transition: "all 0.2s",
+                }}
+              >
+                {status === "submitting" ? "Sending…" : "Send Feedback →"}
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                style={{
+                  width: "100%", marginTop: 10, background: "none", border: "none",
+                  color: muted, fontSize: 13, cursor: "pointer",
+                  fontFamily: "'DM Mono', monospace",
+                }}
+              >Maybe later</button>
+            </form>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Tag({ children, color }) {
   const { theme } = useTheme();
   const c = color || theme.accent;
@@ -401,7 +542,7 @@ const RESUME_TEMPLATES = [
   },
 ];
 
-function Jobvate({ session, onLogout, onShowHistory, onShowProfile, onShowAccountSettings }) {
+function Jobvate({ session, onLogout, onShowHistory, onShowProfile, onShowAccountSettings, onShowFeedback, feedbackGiven }) {
   const { theme, isDark, toggleTheme } = useTheme();
   const [step, setStep] = useState(0);
   const [resume, setResume] = useState("");
@@ -1431,6 +1572,15 @@ For each gap or neutral item in readiness_assessment, add a note field with:
           <button onClick={onShowProfile} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>👤 My Profile</button>
           <button onClick={onShowHistory} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>📋 History</button>
           <button onClick={onShowAccountSettings} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>⚙️ Settings</button>
+          <button
+            onClick={onShowFeedback}
+            style={{ position: "relative", background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}
+          >
+            💬 Feedback
+            {!feedbackGiven && (
+              <span style={{ position: "absolute", top: -3, right: -3, width: 7, height: 7, background: "#EF4444", borderRadius: "50%", border: `1.5px solid ${theme.background}` }} />
+            )}
+          </button>
           <button onClick={onLogout} style={{ background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted, borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace" }}>Sign Out</button>
         </div>
       </div>
@@ -1960,6 +2110,15 @@ export default function App() {
   const [showAccountSettings,  setShowAccountSettings]  = useState(false);
   const [showPasswordReset,    setShowPasswordReset]    = useState(false);
   const [showEmailConfirmed,   setShowEmailConfirmed]   = useState(false);
+  const [showFeedback,         setShowFeedback]         = useState(false);
+  const [feedbackGiven,        setFeedbackGiven]        = useState(
+    () => localStorage.getItem("jobvate_feedback_given") === "true"
+  );
+
+  function handleFeedbackSubmitted() {
+    localStorage.setItem("jobvate_feedback_given", "true");
+    setFeedbackGiven(true);
+  }
   const [isDark, setIsDark]             = useState(() => {
     const saved = localStorage.getItem("jobvate-theme");
     return saved ? saved === "dark" : true;
@@ -2023,10 +2182,37 @@ export default function App() {
 
   if (!session) {
     return (
-      <Login
-        emailConfirmed={showEmailConfirmed}
-        onConfirmedDismiss={() => setShowEmailConfirmed(false)}
-      />
+      <>
+        <Login
+          emailConfirmed={showEmailConfirmed}
+          onConfirmedDismiss={() => setShowEmailConfirmed(false)}
+        />
+        {/* Floating feedback button for unauthenticated pages */}
+        <button
+          onClick={() => setShowFeedback(true)}
+          style={{
+            position: "fixed", bottom: 20, right: 20, zIndex: 9000,
+            background: "#1E293B", border: "1px solid #334155",
+            color: "#94A3B8", borderRadius: 20, padding: "8px 16px",
+            fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono', monospace",
+            display: "flex", alignItems: "center", gap: 6,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+          }}
+        >
+          💬 Feedback
+          {!feedbackGiven && (
+            <span style={{ width: 6, height: 6, background: "#EF4444", borderRadius: "50%", flexShrink: 0 }} />
+          )}
+        </button>
+        {showFeedback && (
+          <FeedbackModal
+            session={null}
+            page="login"
+            onClose={() => setShowFeedback(false)}
+            onSubmitted={handleFeedbackSubmitted}
+          />
+        )}
+      </>
     );
   }
 
@@ -2057,6 +2243,16 @@ export default function App() {
           onShowHistory={() => setShowHistory(true)}
           onShowProfile={() => setShowProfile(true)}
           onShowAccountSettings={() => setShowAccountSettings(true)}
+          onShowFeedback={() => setShowFeedback(true)}
+          feedbackGiven={feedbackGiven}
+        />
+      )}
+      {showFeedback && (
+        <FeedbackModal
+          session={session}
+          page={showHistory ? "history" : showProfile ? "profile" : showAccountSettings ? "settings" : "main"}
+          onClose={() => setShowFeedback(false)}
+          onSubmitted={handleFeedbackSubmitted}
         />
       )}
     </ThemeContext.Provider>
