@@ -767,9 +767,563 @@ function buildExecutiveDoc({ name, jobTitle, contactParts, relocationLine, secti
 </html>`;
 }
 
+// ─── Shared helpers for regional templates ────────────────────────────────────
+
+function formatDOB(dateStr, countryCode) {
+  if (!dateStr) return "";
+  // dateStr is YYYY-MM-DD from <input type="date">
+  // Parse as local date to avoid UTC offset shifting the day
+  const [y, m, d] = dateStr.split("-").map(Number);
+  if (!y || !m || !d) return dateStr;
+  const date = new Date(y, m - 1, d);
+  if (isNaN(date)) return dateStr;
+  if (countryCode === "DE") return date.toLocaleDateString("de-DE");          // DD.MM.YYYY
+  if (countryCode === "SG") return date.toLocaleDateString("en-SG");          // DD/MM/YYYY
+  return date.toLocaleDateString("en-GB");                                     // DD/MM/YYYY
+}
+
+const REGIONAL_PRINT_BANNER = `<div class="print-banner" style="background:#EBF5FF;border:1px solid #3B82F6;border-radius:6px;padding:12px 20px;font-family:Arial,sans-serif;font-size:13px;color:#1E40AF;margin:16px auto;max-width:780px;">
+  <div style="font-weight:bold;margin-bottom:6px;">&#128196; To save as PDF (Chrome recommended): Cmd+P / Ctrl+P &rarr; Save as PDF &rarr; More Settings &rarr; Turn OFF &ldquo;Headers and Footers&rdquo; &rarr; Margins: None &rarr; Save</div>
+</div>`;
+
+function regionalSection(title, innerHTML, opts = {}) {
+  const color   = opts.accentColor || "#1E293B";
+  const border  = opts.borderStyle || `2px solid ${color}`;
+  return (
+    `<div style="margin-top:18px;">` +
+    `<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:${color};` +
+    `letter-spacing:0.08em;border-bottom:${border};padding-bottom:4px;margin-bottom:8px;">${esc(title)}</div>` +
+    innerHTML +
+    `</div>`
+  );
+}
+
+function renderContactLine(parts, sep = " \u00B7 ") {
+  return parts.map(p => {
+    const t = p.trim();
+    if (/linkedin\.com/i.test(t)) {
+      const href = t.startsWith("http") ? t : `https://${t}`;
+      return `<a href="${esc(href)}" style="color:#1155CC;text-decoration:underline;">${esc(t)}</a>`;
+    }
+    return esc(t);
+  }).join(sep);
+}
+
+// ─── Template: UK / IRELAND ───────────────────────────────────────────────────
+
+function buildUKDoc({ name, jobTitle, contactParts, relocationLine, sections, parsedExperience, parsedEducation, boldPhrases, fileTitle }) {
+  const accent = "#1E293B";
+  const block  = (title, html) => regionalSection(title, html, { accentColor: accent, borderStyle: `1.5px solid ${accent}` });
+
+  const used = new Set();
+  const h    = (html) => highlight(html, boldPhrases, used);
+  const hFn  = (t)    => applyPhraseHighlighting(cleanMarkdown(t), boldPhrases);
+
+  const summaryHTML      = h(renderSummary(sections.summary, "font-size:10.5px;line-height:1.6;margin-bottom:5px;color:#222;"));
+  const competenciesHTML = h(renderCompetenciesTable(sections.competencies, "font-size:10px;line-height:1.6;color:#222;"));
+  const experienceHTML   = cleanMarkdown(renderExperience(parsedExperience, {
+    companyStyle: "font-size:11.5px;font-weight:bold;color:#1E293B;margin-bottom:2px;",
+    roleColor: "#374151", dateColor: "#666", bulletColor: "#444", textColor: "#333", hFn,
+  }));
+  const educationHTML    = h(renderEducation(parsedEducation));
+  const skillsHTML       = h(renderBulletSection(sections.skills, "font-size:10px;line-height:1.5;color:#333;"));
+
+  const body = [
+    summaryHTML.trim()      && block("Professional Profile",   summaryHTML),
+    competenciesHTML.trim() && block("Core Competencies",      competenciesHTML),
+    experienceHTML.trim()   && block("Professional Experience", experienceHTML),
+    educationHTML.trim()    && block("Education",              educationHTML),
+    skillsHTML.trim()       && block("Key Skills",             skillsHTML),
+  ].filter(Boolean).join("");
+
+  const refsBlock = block("References",
+    `<p style="font-size:10px;color:#555;font-style:italic;">Available upon request.</p>`
+  );
+
+  const contactLine = renderContactLine(contactParts, " &nbsp;|&nbsp; ");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>${esc(fileTitle)}</title>
+  <style>
+    @page { margin: 0.75in; size: A4; }
+    @media print { .print-banner { display: none !important; } body { -webkit-print-color-adjust: exact; } }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #fff; color: #111; font-family: Arial, sans-serif; }
+  </style>
+</head>
+<body>
+  ${REGIONAL_PRINT_BANNER}
+  <div style="max-width:750px;margin:0 auto;padding:0 0.1in;">
+    <div style="background:#1E293B;padding:26px 32px;">
+      ${name     ? `<div style="font-size:22px;font-weight:bold;color:#fff;letter-spacing:-0.01em;margin-bottom:4px;">${esc(name)}</div>` : ""}
+      ${jobTitle ? `<div style="font-size:12px;color:#93c5fd;margin-bottom:10px;">${esc(jobTitle)}</div>` : ""}
+      ${contactLine ? `<div style="font-size:10px;color:#94a3b8;line-height:1.8;">${contactLine}</div>` : ""}
+      ${relocationLine ? `<div style="font-size:10px;color:#34d399;font-style:italic;margin-top:5px;">${esc(relocationLine)}</div>` : ""}
+    </div>
+    <div style="display:flex;justify-content:flex-end;padding:6px 0;">
+      <span style="font-size:8px;color:#94a3b8;letter-spacing:0.15em;text-transform:uppercase;">Curriculum Vitae</span>
+    </div>
+    ${body}
+    ${refsBlock}
+  </div>
+</body>
+</html>`;
+}
+
+// ─── Template: GERMANY (Lebenslauf) ──────────────────────────────────────────
+
+function buildGermanyDoc({ name, jobTitle, contactParts, relocationLine, sections, parsedExperience, parsedEducation, boldPhrases, fileTitle, avatarUrl, profileData = {}, countryCode = "DE" }) {
+  const accent = "#000";
+  const today  = new Date().toLocaleDateString("de-DE");
+
+  // Helper: render a table row only if value is non-empty
+  const row = (label, value) => {
+    if (!value || !value.toString().trim()) return "";
+    return `<tr><td style="font-size:10px;color:#555;padding:3px 0;width:180px;">${esc(label)}:</td><td style="font-size:10px;padding:3px 0;">${esc(value.toString())}</td></tr>`;
+  };
+
+  // Extract address & phone/email for personal details
+  const addressLine  = contactParts.find(p => /,/.test(p) && !/@/.test(p) && !/linkedin/i.test(p)) || "";
+  const phoneLine    = contactParts.find(p => /\+/.test(p)) || "";
+  const emailLine    = contactParts.find(p => /@/.test(p)) || "";
+  const linkedinLine = contactParts.find(p => /linkedin/i.test(p)) || "";
+
+  const block = (title, html) => regionalSection(title, html, { accentColor: accent, borderStyle: "1.5px solid #333" });
+
+  const used = new Set();
+  const h    = (html) => highlight(html, boldPhrases, used);
+  const hFn  = (t)    => applyPhraseHighlighting(cleanMarkdown(t), boldPhrases);
+
+  const summaryHTML   = h(renderSummary(sections.summary,      "font-size:10px;line-height:1.55;margin-bottom:4px;"));
+  const skillsHTML    = h(renderBulletSection(sections.skills, "font-size:10px;line-height:1.5;"));
+  const competHTML    = h(renderCompetenciesTable(sections.competencies, "font-size:10px;"));
+  const educationHTML = h(renderEducation(parsedEducation));
+
+  // German-style tabular experience: date left | content right
+  const experienceRows = parsedExperience.map(({ company, role, date, bullets }) => {
+    const bulletsHTML = bullets.length
+      ? bullets.map(b => {
+          const content = hFn ? hFn(esc(b)) : esc(b);
+          return `<div style="display:flex;margin-bottom:3px;"><span style="margin-right:6px;flex-shrink:0;">&bull;</span><span style="font-size:10px;line-height:1.4;">${content}</span></div>`;
+        }).join("")
+      : "";
+    return (
+      `<tr style="vertical-align:top;border-bottom:1px solid #f0f0f0;">` +
+      `<td style="width:110px;padding:6px 12px 10px 0;font-size:10px;color:#555;white-space:nowrap;flex-shrink:0;">${esc(date)}</td>` +
+      `<td style="padding:6px 0 10px;">` +
+      (company ? `<div style="font-size:11px;font-weight:bold;color:#000;margin-bottom:1px;">${esc(company)}</div>` : "") +
+      (role    ? `<div style="font-size:10px;color:#333;margin-bottom:4px;font-style:italic;">${esc(role)}</div>` : "") +
+      bulletsHTML +
+      `</td></tr>`
+    );
+  }).join("");
+
+  const educBlock = parsedEducation.map(group => {
+    if (!group.length) return "";
+    const uni = group[0];
+    const { role: deg, date } = group.length > 1 ? extractRoleDate(group[1]) : { role: "", date: "" };
+    return (
+      `<tr style="vertical-align:top;border-bottom:1px solid #f0f0f0;">` +
+      `<td style="width:110px;padding:6px 12px 10px 0;font-size:10px;color:#555;white-space:nowrap;">${esc(date)}</td>` +
+      `<td style="padding:6px 0 10px;">` +
+      (deg ? `<div style="font-size:11px;font-weight:bold;">${esc(deg)}</div>` : "") +
+      (uni ? `<div style="font-size:10px;color:#555;">${esc(uni)}</div>` : "") +
+      `</td></tr>`
+    );
+  }).join("");
+
+  // Photo block
+  const photoBlock = avatarUrl
+    ? `<img src="${esc(avatarUrl)}" style="width:105px;height:140px;object-fit:cover;display:block;border:1px solid #ddd;" alt="Bewerbungsfoto" />`
+    : `<div style="width:105px;height:140px;border:2px dashed #bbb;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fafafa;">
+        <div style="font-size:8px;color:#999;text-align:center;padding:6px;line-height:1.5;">Bewerbungs&shy;foto</div>
+       </div>`;
+
+  // Persönliche Daten — only show rows that have data
+  const pdRows = [
+    row("Geburtsdatum",      formatDOB(profileData.date_of_birth, countryCode)),
+    row("Staatsangehörigkeit", profileData.nationality),
+    row("Familienstand",     profileData.marital_status && profileData.marital_status !== "Prefer not to say" ? profileData.marital_status : ""),
+    row("Adresse",           addressLine),
+  ].join("");
+  const persoenlicheDaten = pdRows
+    ? `<div style="margin-bottom:18px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;border-bottom:1.5px solid #333;padding-bottom:4px;margin-bottom:10px;">Persönliche Daten</div>
+        <table style="border-collapse:collapse;width:100%;">${pdRows}</table>
+       </div>`
+    : "";
+
+  // Sprachen — use profile languages if available, else omit
+  const langs = Array.isArray(profileData.languages) ? profileData.languages : [];
+  const sprachen = langs.length > 0
+    ? `<div style="margin-top:18px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;border-bottom:1.5px solid #333;padding-bottom:4px;margin-bottom:8px;">Sprachen</div>
+        <div style="font-size:10px;color:#444;line-height:1.8;">
+          ${langs.map(l => `<span style="margin-right:18px;"><strong>${esc(l.name)}</strong>: ${esc(l.level)}</span>`).join("")}
+        </div>
+       </div>`
+    : "";
+
+  // Signature city: prefer profileData.signature_city, then first part of addressLine, then blank line
+  const sigCity = profileData.signature_city || (addressLine ? addressLine.split(",")[0].trim() : "");
+
+  const bodyHtml = [
+    summaryHTML.trim()  && block("Profil", summaryHTML),
+    experienceRows      && `<div style="margin-top:18px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;border-bottom:1.5px solid #333;padding-bottom:4px;margin-bottom:0;">Berufserfahrung</div><table style="width:100%;border-collapse:collapse;">${experienceRows}</table></div>`,
+    educBlock           && `<div style="margin-top:18px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;border-bottom:1.5px solid #333;padding-bottom:4px;margin-bottom:0;">Ausbildung</div><table style="width:100%;border-collapse:collapse;">${educBlock}</table></div>`,
+    skillsHTML.trim()   && block("Kenntnisse", skillsHTML),
+    competHTML.trim()   && block("Weitere Fähigkeiten", competHTML),
+  ].filter(Boolean).join("");
+
+  return `<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <title>${esc(fileTitle)}</title>
+  <style>
+    @page { margin: 0.75in; size: A4; }
+    @media print { .print-banner { display: none !important; } body { -webkit-print-color-adjust: exact; } }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #fff; color: #111; font-family: Arial, sans-serif; }
+  </style>
+</head>
+<body>
+  ${REGIONAL_PRINT_BANNER}
+  <div style="max-width:750px;margin:0 auto;padding:0 0.1in;">
+
+    <!-- Header row: name/contact left, photo right -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;padding-top:8px;">
+      <div style="flex:1;padding-right:20px;">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.15em;color:#555;margin-bottom:8px;">Lebenslauf</div>
+        ${name     ? `<div style="font-size:22px;font-weight:bold;color:#000;margin-bottom:4px;">${esc(name)}</div>` : ""}
+        ${jobTitle ? `<div style="font-size:12px;color:#333;margin-bottom:10px;">${esc(jobTitle)}</div>` : ""}
+        <div style="font-size:10px;color:#555;line-height:1.8;">
+          ${addressLine  ? `<div>${esc(addressLine)}</div>`  : ""}
+          ${phoneLine    ? `<div>${esc(phoneLine)}</div>`    : ""}
+          ${emailLine    ? `<div>${esc(emailLine)}</div>`    : ""}
+          ${linkedinLine ? `<div>${esc(linkedinLine)}</div>` : ""}
+        </div>
+      </div>
+      <div style="flex-shrink:0;">${photoBlock}</div>
+    </div>
+
+    <hr style="border:none;border-top:2px solid #000;margin-bottom:14px;" />
+
+    ${persoenlicheDaten}
+
+    ${bodyHtml}
+
+    ${sprachen}
+
+    <!-- Signature block -->
+    <div style="margin-top:40px;border-top:1px solid #eee;padding-top:20px;">
+      <div style="font-size:10px;color:#555;margin-bottom:24px;">${sigCity ? esc(sigCity) + ", den " + today : today}</div>
+      <div style="border-bottom:1px solid #555;width:200px;margin-bottom:6px;">&nbsp;</div>
+      <div style="font-size:10px;color:#555;">${esc(name)}</div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+// ─── Template: NETHERLANDS / FINLAND ─────────────────────────────────────────
+
+function buildNLFIDoc({ name, jobTitle, contactParts, relocationLine, sections, parsedExperience, parsedEducation, boldPhrases, fileTitle, avatarUrl, profileData = {} }) {
+  const accent = "#0F5299";
+  const block  = (title, html) => regionalSection(title, html, { accentColor: accent, borderStyle: `1.5px solid ${accent}` });
+
+  const used = new Set();
+  const h    = (html) => highlight(html, boldPhrases, used);
+  const hFn  = (t)    => applyPhraseHighlighting(cleanMarkdown(t), boldPhrases);
+
+  const summaryHTML    = h(renderSummary(sections.summary,   "font-size:10.5px;line-height:1.6;margin-bottom:5px;color:#222;"));
+  const competHTML     = h(renderCompetenciesTable(sections.competencies, "font-size:10px;line-height:1.6;"));
+  const experienceHTML = cleanMarkdown(renderExperience(parsedExperience, {
+    companyStyle: "font-size:11.5px;font-weight:bold;color:#000;margin-bottom:2px;",
+    roleColor: "#0F5299", dateColor: "#666", bulletColor: "#444", textColor: "#333", hFn,
+  }));
+  const educationHTML  = h(renderEducation(parsedEducation));
+  const skillsHTML     = h(renderBulletSection(sections.skills, "font-size:10px;line-height:1.5;"));
+
+  const body = [
+    summaryHTML.trim()    && block("Professional Summary", summaryHTML),
+    competHTML.trim()     && block("Core Competencies",    competHTML),
+    experienceHTML.trim() && block("Work Experience",      experienceHTML),
+    educationHTML.trim()  && block("Education",            educationHTML),
+    skillsHTML.trim()     && block("Skills",               skillsHTML),
+  ].filter(Boolean).join("");
+
+  // Build referee cells — show real data if available, placeholder card if not
+  function refCell(n) {
+    const nm  = profileData[`referee_${n}_name`];
+    const ttl = profileData[`referee_${n}_title`];
+    const co  = profileData[`referee_${n}_company`];
+    const em  = profileData[`referee_${n}_email`];
+    const ph  = profileData[`referee_${n}_phone`];
+    if (!nm) return null;
+    const lines = [
+      nm  ? `<div style="font-weight:bold;font-size:10.5px;margin-bottom:3px;">${esc(nm)}</div>` : "",
+      ttl ? `<div>${esc(ttl)}</div>` : "",
+      co  ? `<div>${esc(co)}</div>` : "",
+      em  ? `<div>${esc(em)}</div>` : "",
+      ph  ? `<div>${esc(ph)}</div>` : "",
+    ].filter(Boolean).join("");
+    return `<td style="padding:4px 20px 4px 0;vertical-align:top;font-size:10px;color:#333;line-height:1.7;">${lines}</td>`;
+  }
+
+  const r1 = refCell(1);
+  const r2 = refCell(2);
+  const refsBlock = (r1 || r2)
+    ? block("References",
+        `<table style="width:100%;border-collapse:collapse;">
+          <tr>${r1 || ""}${r2 || ""}</tr>
+         </table>`)
+    : "";
+
+  const photoBlock = avatarUrl
+    ? `<img src="${esc(avatarUrl)}" style="width:90px;height:90px;border-radius:50%;object-fit:cover;border:2px solid #ddd;" alt="Profile" />`
+    : "";
+
+  const headerRight = photoBlock
+    ? `<div style="flex-shrink:0;margin-left:20px;">${photoBlock}</div>`
+    : "";
+
+  const contactLine = renderContactLine(contactParts, " &nbsp;&middot;&nbsp; ");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>${esc(fileTitle)}</title>
+  <style>
+    @page { margin: 0.75in; size: A4; }
+    @media print { .print-banner { display: none !important; } body { -webkit-print-color-adjust: exact; } }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #fff; color: #111; font-family: Arial, sans-serif; }
+  </style>
+</head>
+<body>
+  ${REGIONAL_PRINT_BANNER}
+  <div style="max-width:750px;margin:0 auto;padding:0 0.1in;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:20px 0 14px;border-bottom:3px solid ${accent};margin-bottom:4px;">
+      <div style="flex:1;">
+        ${name     ? `<div style="font-size:22px;font-weight:bold;color:#0F172A;margin-bottom:3px;">${esc(name)}</div>` : ""}
+        ${jobTitle ? `<div style="font-size:12px;color:${accent};margin-bottom:6px;">${esc(jobTitle)}</div>` : ""}
+        ${contactLine ? `<div style="font-size:10px;color:#555;line-height:1.7;">${contactLine}</div>` : ""}
+        ${relocationLine ? `<div style="font-size:10px;color:#16a34a;font-style:italic;margin-top:4px;">${esc(relocationLine)}</div>` : ""}
+      </div>
+      ${headerRight}
+    </div>
+    ${body}
+    ${refsBlock}
+  </div>
+</body>
+</html>`;
+}
+
+// ─── Template: SINGAPORE ─────────────────────────────────────────────────────
+
+function buildSingaporeDoc({ name, jobTitle, contactParts, relocationLine, sections, parsedExperience, parsedEducation, boldPhrases, fileTitle, avatarUrl, profileData = {}, countryCode = "SG" }) {
+  const accent = "#1a56a0";
+  const block  = (title, html) => regionalSection(title, html, { accentColor: accent, borderStyle: `1.5px solid ${accent}` });
+
+  const used = new Set();
+  const h    = (html) => highlight(html, boldPhrases, used);
+  const hFn  = (t)    => applyPhraseHighlighting(cleanMarkdown(t), boldPhrases);
+
+  const summaryHTML    = h(renderSummary(sections.summary,   "font-size:10.5px;line-height:1.6;margin-bottom:4px;color:#222;"));
+  const competHTML     = h(renderCompetenciesTable(sections.competencies, "font-size:10px;"));
+  const experienceHTML = cleanMarkdown(renderExperience(parsedExperience, {
+    companyStyle: "font-size:11.5px;font-weight:bold;color:#000;margin-bottom:2px;",
+    roleColor: accent, dateColor: "#666", bulletColor: "#444", textColor: "#333", hFn,
+  }));
+  const educationHTML  = h(renderEducation(parsedEducation));
+  const skillsHTML     = h(renderBulletSection(sections.skills, "font-size:10px;line-height:1.5;"));
+
+  const body = [
+    summaryHTML.trim()    && block("Professional Summary",    summaryHTML),
+    competHTML.trim()     && block("Core Competencies",       competHTML),
+    experienceHTML.trim() && block("Work Experience",         experienceHTML),
+    educationHTML.trim()  && block("Education",               educationHTML),
+    skillsHTML.trim()     && block("Skills &amp; Competencies", skillsHTML),
+  ].filter(Boolean).join("");
+
+  const photoBlock = avatarUrl
+    ? `<img src="${esc(avatarUrl)}" style="width:90px;height:90px;border-radius:50%;object-fit:cover;border:2px solid #ddd;" alt="Profile" />`
+    : `<div style="width:90px;height:90px;border:2px dashed #ccc;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#f8f8f8;"><span style="font-size:9px;color:#aaa;text-align:center;padding:6px;">Photo</span></div>`;
+
+  const contactLine = renderContactLine(contactParts, " &nbsp;|&nbsp; ");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>${esc(fileTitle)}</title>
+  <style>
+    @page { margin: 0.75in; size: A4; }
+    @media print { .print-banner { display: none !important; } body { -webkit-print-color-adjust: exact; } }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #fff; color: #111; font-family: Arial, sans-serif; }
+  </style>
+</head>
+<body>
+  ${REGIONAL_PRINT_BANNER}
+  <div style="max-width:750px;margin:0 auto;padding:0 0.1in;">
+
+    <!-- Header: name left, photo right -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:2px solid ${accent};margin-bottom:14px;">
+      <div style="flex:1;padding-right:20px;padding-top:6px;">
+        ${name     ? `<div style="font-size:22px;font-weight:bold;color:#0F172A;margin-bottom:3px;">${esc(name)}</div>` : ""}
+        ${jobTitle ? `<div style="font-size:12px;color:${accent};margin-bottom:8px;">${esc(jobTitle)}</div>` : ""}
+        ${contactLine ? `<div style="font-size:10px;color:#555;line-height:1.8;">${contactLine}</div>` : ""}
+        ${relocationLine ? `<div style="font-size:10px;color:#16a34a;font-style:italic;margin-top:4px;">${esc(relocationLine)}</div>` : ""}
+      </div>
+      <div style="flex-shrink:0;">${photoBlock}</div>
+    </div>
+
+    ${(() => {
+      const nat  = profileData.nationality;
+      const dob  = formatDOB(profileData.date_of_birth, countryCode);
+      const visa = profileData.visa_status;
+      if (!nat && !dob && !visa) return "";
+      const td = (label, val) => val
+        ? `<tr><td style="padding:3px 0;color:#555;width:160px;font-size:10px;">${esc(label)}:</td><td style="padding:3px 0;font-size:10px;font-weight:500;" colspan="3">${esc(val)}</td></tr>`
+        : "";
+      return `<div style="margin-bottom:14px;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:${accent};margin-bottom:8px;">Personal Particulars</div>
+        <table style="width:100%;border-collapse:collapse;">
+          ${td("Nationality", nat)}
+          ${td("Date of Birth", dob)}
+          ${td("Work Pass / PR Status", visa)}
+        </table>
+      </div>`;
+    })()}
+
+    ${body}
+  </div>
+</body>
+</html>`;
+}
+
+// ─── Template: AUSTRALIA / NEW ZEALAND ───────────────────────────────────────
+
+function buildAusNZDoc({ name, jobTitle, contactParts, relocationLine, sections, parsedExperience, parsedEducation, boldPhrases, fileTitle, profileData = {} }) {
+  const accent = "#1d4ed8";
+  const block  = (title, html) => regionalSection(title, html, { accentColor: accent, borderStyle: `1.5px solid ${accent}` });
+
+  const used = new Set();
+  const h    = (html) => highlight(html, boldPhrases, used);
+  const hFn  = (t)    => applyPhraseHighlighting(cleanMarkdown(t), boldPhrases);
+
+  const summaryHTML    = h(renderSummary(sections.summary,   "font-size:10.5px;line-height:1.6;margin-bottom:5px;color:#222;"));
+  const competHTML     = h(renderCompetenciesTable(sections.competencies, "font-size:10px;line-height:1.6;"));
+  const experienceHTML = cleanMarkdown(renderExperience(parsedExperience, {
+    companyStyle: "font-size:11.5px;font-weight:bold;color:#000;margin-bottom:2px;",
+    roleColor: accent, dateColor: "#666", bulletColor: "#444", textColor: "#333", hFn,
+  }));
+  const educationHTML  = h(renderEducation(parsedEducation));
+  const skillsHTML     = h(renderBulletSection(sections.skills, "font-size:10px;line-height:1.5;"));
+
+  const body = [
+    summaryHTML.trim()    && block("Professional Summary",   summaryHTML),
+    competHTML.trim()     && block("Key Competencies",       competHTML),
+    experienceHTML.trim() && block("Work Experience",        experienceHTML),
+    educationHTML.trim()  && block("Education",              educationHTML),
+    skillsHTML.trim()     && block("Skills",                 skillsHTML),
+  ].filter(Boolean).join("");
+
+  // Build a referee card — real data if available, blank placeholder if name missing
+  function refCard(n) {
+    const nm  = profileData[`referee_${n}_name`];
+    const ttl = profileData[`referee_${n}_title`];
+    const co  = profileData[`referee_${n}_company`];
+    const ph  = profileData[`referee_${n}_phone`];
+    const em  = profileData[`referee_${n}_email`];
+    const rel = profileData[`referee_${n}_relationship`];
+
+    if (nm) {
+      // Filled card
+      const line = (label, val) => val
+        ? `<div><span style="color:#888;">${esc(label)}:</span> ${esc(val)}</div>`
+        : "";
+      return `<div style="flex:1;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;min-width:0;">
+        <div style="font-size:10px;font-weight:700;color:${accent};margin-bottom:6px;">Referee ${n}</div>
+        <div style="font-size:10px;color:#333;line-height:1.8;">
+          <div style="font-weight:bold;margin-bottom:2px;">${esc(nm)}</div>
+          ${line("Title",        ttl)}
+          ${line("Company",      co)}
+          ${line("Phone",        ph)}
+          ${line("Email",        em)}
+          ${line("Relationship", rel)}
+        </div>
+      </div>`;
+    }
+    // Blank placeholder card
+    return `<div style="flex:1;padding:10px 14px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:4px;min-width:0;">
+      <div style="font-size:10px;font-weight:700;color:${accent};margin-bottom:6px;">Referee ${n}</div>
+      <div style="font-size:10px;color:#94a3b8;line-height:1.9;">
+        <div>Name: <span style="border-bottom:1px solid #cbd5e1;display:inline-block;min-width:130px;">&nbsp;</span></div>
+        <div>Title: <span style="border-bottom:1px solid #cbd5e1;display:inline-block;min-width:130px;">&nbsp;</span></div>
+        <div>Company: <span style="border-bottom:1px solid #cbd5e1;display:inline-block;min-width:110px;">&nbsp;</span></div>
+        <div>Phone: <span style="border-bottom:1px solid #cbd5e1;display:inline-block;min-width:118px;">&nbsp;</span></div>
+        <div>Email: <span style="border-bottom:1px solid #cbd5e1;display:inline-block;min-width:120px;">&nbsp;</span></div>
+      </div>
+    </div>`;
+  }
+
+  const refsBlock = block("References",
+    `<div style="display:flex;gap:16px;margin-bottom:10px;">${refCard(1)}${refCard(2)}</div>
+     <p style="font-size:9px;color:#888;font-style:italic;">Referees should ideally be direct managers or senior colleagues from recent roles.</p>`
+  );
+
+  const contactLine = renderContactLine(contactParts, " &nbsp;&middot;&nbsp; ");
+
+  // Work rights / visa status badge
+  const visaBadge = profileData.visa_status
+    ? `<div style="display:inline-flex;align-items:center;gap:6px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:3px;padding:3px 9px;margin-top:4px;">
+        <span style="font-size:10px;color:${accent};font-weight:600;">Work Rights / Visa:</span>
+        <span style="font-size:10px;color:#1e40af;font-weight:500;">${esc(profileData.visa_status)}</span>
+       </div>`
+    : `<div style="display:inline-flex;align-items:center;gap:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:3px;padding:3px 9px;margin-top:4px;">
+        <span style="font-size:10px;color:#64748b;">Work Rights / Visa Status:</span>
+        <span style="font-size:10px;color:#94a3b8;border-bottom:1px solid #cbd5e1;min-width:120px;display:inline-block;">&nbsp;</span>
+       </div>`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>${esc(fileTitle)}</title>
+  <style>
+    @page { margin: 0.75in; size: A4; }
+    @media print { .print-banner { display: none !important; } body { -webkit-print-color-adjust: exact; } }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #fff; color: #111; font-family: Arial, sans-serif; }
+  </style>
+</head>
+<body>
+  ${REGIONAL_PRINT_BANNER}
+  <div style="max-width:750px;margin:0 auto;padding:0 0.1in;">
+    <div style="padding:22px 0 16px;border-bottom:3px solid ${accent};margin-bottom:4px;">
+      ${name     ? `<div style="font-size:22px;font-weight:bold;color:#0F172A;margin-bottom:3px;">${esc(name)}</div>` : ""}
+      ${jobTitle ? `<div style="font-size:12px;color:${accent};margin-bottom:8px;">${esc(jobTitle)}</div>` : ""}
+      ${contactLine ? `<div style="font-size:10px;color:#555;line-height:1.8;margin-bottom:4px;">${contactLine}</div>` : ""}
+      ${visaBadge}
+      ${relocationLine ? `<div style="font-size:10px;color:#16a34a;font-style:italic;margin-top:5px;">${esc(relocationLine)}</div>` : ""}
+    </div>
+    ${body}
+    ${refsBlock}
+  </div>
+</body>
+</html>`;
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-export function generateResumeHTML(resumeText, profileLocation = "", boldPhrases = [], template = "classic", jobTitleOverride = "") {
+export function generateResumeHTML(resumeText, profileLocation = "", boldPhrases = [], template = "classic", jobTitleOverride = "", countryCode = "GLOBAL", countryName = "", docType = "", avatarUrl = "", profileData = {}) {
   // Clean AI-introduced corruptions before any parsing
   const cleanedText = cleanResumeText(resumeText);
   const sections = splitSections(cleanedText);
@@ -807,9 +1361,31 @@ export function generateResumeHTML(resumeText, profileLocation = "", boldPhrases
   const tplLabel    = template.charAt(0).toUpperCase() + template.slice(1);
   const fileTitle   = [nameSlug, titleSlug, tplLabel].filter(Boolean).join("_") || "Resume";
 
-  const args = { name, jobTitle, inlineContactHTML, contactParts, relocationLine, sections, parsedExperience, parsedEducation, boldPhrases, fileTitle };
+  const args = { name, jobTitle, inlineContactHTML, contactParts, relocationLine, sections, parsedExperience, parsedEducation, boldPhrases, fileTitle, avatarUrl, profileData, countryCode };
 
-  if (template === "modern")    return buildModernDoc(args);
-  if (template === "executive") return buildExecutiveDoc(args);
-  return buildClassicDoc(args);
+  const REGIONAL_CODES = ["GB", "IE", "DE", "NL", "FI", "SG", "AU", "NZ"];
+  let html;
+  if (countryCode === "GB" || countryCode === "IE") {
+    html = buildUKDoc(args);
+  } else if (countryCode === "DE") {
+    html = buildGermanyDoc({ ...args, avatarUrl, profileData });
+  } else if (countryCode === "NL" || countryCode === "FI") {
+    html = buildNLFIDoc({ ...args, avatarUrl, profileData });
+  } else if (countryCode === "SG") {
+    html = buildSingaporeDoc({ ...args, avatarUrl, profileData });
+  } else if (countryCode === "AU" || countryCode === "NZ") {
+    html = buildAusNZDoc({ ...args, profileData });
+  } else {
+    if (template === "modern")         html = buildModernDoc(args);
+    else if (template === "executive") html = buildExecutiveDoc(args);
+    else                               html = buildClassicDoc(args);
+  }
+
+  // Inject subtle country format note only for non-regional templates
+  if (!REGIONAL_CODES.includes(countryCode) && countryCode && countryCode !== "GLOBAL" && countryName) {
+    const footerNote = `<p style="text-align:center;font-size:9px;color:#999;margin-top:20px;font-family:Arial,sans-serif;font-style:italic;">Formatted for ${countryName} · ${docType || "CV"}</p>`;
+    html = html.replace("</body>", footerNote + "\n</body>");
+  }
+
+  return html;
 }

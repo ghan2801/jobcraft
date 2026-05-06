@@ -158,6 +158,319 @@ function FeedbackModal({ session, onClose, onSubmitted, page = "main" }) {
   );
 }
 
+// ── Country format data ───────────────────────────────────────────────────────
+
+const COUNTRIES = [
+  { code: "GLOBAL", name: "Global / USA",    flag: "🌐", docName: "Resume",            photo: false, note: "ATS optimized, 1 page" },
+  { code: "GB",     name: "United Kingdom",  flag: "🇬🇧", docName: "CV",                photo: false, note: "Achievement focused, 2 pages" },
+  { code: "IE",     name: "Ireland",         flag: "🇮🇪", docName: "CV",                photo: false, note: "Similar to UK format" },
+  { code: "DE",     name: "Germany",         flag: "🇩🇪", docName: "Lebenslauf",        photo: true,  note: "Photo & DOB expected" },
+  { code: "NL",     name: "Netherlands",     flag: "🇳🇱", docName: "CV",                photo: false, note: "Direct & factual tone" },
+  { code: "FI",     name: "Finland",         flag: "🇫🇮", docName: "CV (Ansioluettelo)",photo: true,  note: "Photo common, honest tone" },
+  { code: "SG",     name: "Singapore",       flag: "🇸🇬", docName: "Resume/CV",         photo: true,  note: "Work pass status important" },
+  { code: "AU",     name: "Australia",       flag: "🇦🇺", docName: "Resume",            photo: false, note: "Include 2 referees" },
+  { code: "NZ",     name: "New Zealand",     flag: "🇳🇿", docName: "CV",                photo: false, note: "Include referees" },
+  { code: "IN",     name: "India",           flag: "🇮🇳", docName: "Resume",            photo: false, note: "Skills & education focus" },
+  { code: "CA",     name: "Canada",          flag: "🇨🇦", docName: "Resume",            photo: false, note: "Similar to US format" },
+  { code: "AE",     name: "UAE / Dubai",     flag: "🇦🇪", docName: "CV",                photo: true,  note: "Photo common, detailed" },
+];
+
+const FORMAT_NOTES = {
+  GLOBAL: "📋 US Resumes: No photo, no DOB, no personal details. 1 page preferred. ATS-optimized format.",
+  GB:     "📋 UK CVs are typically 2 pages, achievement-focused. List results and metrics wherever possible.",
+  IE:     "📋 Irish CVs follow UK format — 2 pages, results-oriented. Include a personal statement at the top.",
+  DE:     "📋 German CVs (Lebenslauf) typically include: date of birth, nationality, professional photo, and a handwritten-style signature block. Our template will add placeholder sections for these.",
+  NL:     "📋 Dutch CVs are direct and factual. Keep to 1–2 pages. List achievements concisely. A cover letter (motivatiebrief) is often separate.",
+  FI:     "📋 Finnish CVs (Ansioluettelo) include a professional photo and a straightforward, honest tone. Typically 1–2 pages.",
+  SG:     "📋 Singapore CVs often include work pass status, NRIC number (for locals), and a photo. List education with GPA if strong.",
+  AU:     "📋 Australian CVs typically include 2–3 referee contacts at the end. Add your referees in the references section.",
+  NZ:     "📋 New Zealand CVs include referees. Keep to 2–3 pages. A personal hobbies section is common and welcomed.",
+  IN:     "📋 Indian Resumes emphasise skills, education, and certifications. Include percentage/CGPA for degrees if strong. 2–3 pages is acceptable.",
+  CA:     "📋 Canadian Resumes follow US format — no photo, no DOB, 1–2 pages, ATS-friendly. Tailor to each province's norms.",
+  AE:     "📋 UAE CVs typically include a professional photo, nationality, visa status, and date of birth. 2–3 pages is standard.",
+};
+
+const COUNTRY_REQUIREMENTS = {
+  DE: {
+    required:    ["date_of_birth", "nationality", "signature_city"],
+    recommended: ["languages", "marital_status"],
+    labels: { date_of_birth: "Date of Birth", nationality: "Nationality", signature_city: "City for Signature", languages: "Languages with CEFR levels", marital_status: "Marital Status" },
+  },
+  SG: {
+    required:    ["nationality", "visa_status", "date_of_birth"],
+    recommended: [],
+    labels: { nationality: "Nationality", visa_status: "Work Pass / Visa Status", date_of_birth: "Date of Birth" },
+  },
+  AU: {
+    required:    ["visa_status"],
+    recommended: ["referee_1_name", "referee_2_name"],
+    labels: { visa_status: "Work Rights / Visa Status", referee_1_name: "Referee 1 Details", referee_2_name: "Referee 2 Details" },
+  },
+  NZ: {
+    required:    ["visa_status"],
+    recommended: ["referee_1_name", "referee_2_name"],
+    labels: { visa_status: "Work Rights / Visa Status", referee_1_name: "Referee 1 Details", referee_2_name: "Referee 2 Details" },
+  },
+  NL: {
+    required:    [],
+    recommended: ["referee_1_name", "nationality"],
+    labels: { referee_1_name: "Referee Details", nationality: "Nationality" },
+  },
+  FI: {
+    required:    [],
+    recommended: ["referee_1_name", "referee_2_name", "languages"],
+    labels: { referee_1_name: "Referee 1 Details", referee_2_name: "Referee 2 Details", languages: "Languages" },
+  },
+  GB:     { required: [], recommended: [] },
+  IE:     { required: [], recommended: [] },
+  GLOBAL: { required: [], recommended: [] },
+  US:     { required: [], recommended: [] },
+  CA:     { required: [], recommended: [] },
+  IN:     { required: [], recommended: [] },
+  AE: {
+    required:    ["nationality", "visa_status", "date_of_birth"],
+    recommended: [],
+    labels: { nationality: "Nationality", visa_status: "Visa / Residency Status", date_of_birth: "Date of Birth" },
+  },
+};
+
+function extractLocationFromJD(jdText) {
+  if (!jdText) return null;
+  const text = jdText.toLowerCase();
+  const locationMap = [
+    { keys: ["germany","berlin","munich","hamburg","frankfurt","deutschland"],                                          country: "Germany",       code: "DE" },
+    { keys: ["netherlands","amsterdam","rotterdam","den haag","eindhoven","dutch"],                                     country: "Netherlands",    code: "NL" },
+    { keys: ["finland","helsinki","tampere","espoo","finnish"],                                                         country: "Finland",        code: "FI" },
+    { keys: ["ireland","dublin","cork","galway","limerick"],                                                            country: "Ireland",        code: "IE" },
+    { keys: ["singapore","sg","singapura"],                                                                             country: "Singapore",      code: "SG" },
+    { keys: ["australia","sydney","melbourne","brisbane","perth","canberra"],                                           country: "Australia",      code: "AU" },
+    { keys: ["new zealand","auckland","wellington","christchurch"],                                                     country: "New Zealand",    code: "NZ" },
+    { keys: ["united kingdom","london","manchester","birmingham","edinburgh","glasgow","leeds","bristol"],               country: "United Kingdom", code: "GB" },
+    { keys: ["united states","usa","new york","san francisco","seattle","chicago","boston","austin","los angeles","remote us"], country: "United States",  code: "GLOBAL" },
+    { keys: ["india","mumbai","bangalore","bengaluru","pune","delhi","hyderabad","chennai"],                            country: "India",          code: "IN" },
+    { keys: ["canada","toronto","vancouver","montreal","calgary"],                                                      country: "Canada",         code: "CA" },
+    { keys: ["dubai","uae","abu dhabi","united arab emirates"],                                                         country: "UAE",            code: "AE" },
+  ];
+  for (const loc of locationMap) {
+    if (loc.keys.some(k => text.includes(k))) {
+      return { country: loc.country, code: loc.code };
+    }
+  }
+  return null;
+}
+
+// ── CountrySelectorModal ──────────────────────────────────────────────────────
+function CountrySelectorModal({ detectedLocation, selectedCountry, onSelectCountry, onConfirm, onCancel, onShowProfile, avatarUrl, profileData = {} }) {
+  const { theme, isDark } = useTheme();
+  const country = COUNTRIES.find(c => c.code === selectedCountry) || COUNTRIES[0];
+
+  const reqs = COUNTRY_REQUIREMENTS[selectedCountry] || { required: [], recommended: [] };
+
+  function isMissing(field) {
+    const val = profileData[field];
+    if (field === "languages") return !Array.isArray(val) || val.length === 0;
+    return !val || (typeof val === "string" && !val.trim());
+  }
+
+  const missingRequired    = (reqs.required    || []).filter(isMissing);
+  const missingRecommended = (reqs.recommended || []).filter(isMissing);
+  const labels = reqs.labels || {};
+
+  return (
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onCancel(); }}
+      style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        zIndex: 9999, padding: 24, backdropFilter: "blur(4px)",
+      }}
+    >
+      <div style={{
+        background: theme.card, border: `1px solid ${theme.border}`,
+        borderRadius: 16, padding: 28, width: "100%", maxWidth: 540,
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
+        boxShadow: "0 24px 64px rgba(0,0,0,0.4)",
+        maxHeight: "90vh", overflowY: "auto",
+      }}>
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
+          <div>
+            <h2 style={{ fontSize: 18, fontWeight: 800, color: theme.textStrong, marginBottom: 4 }}>Choose CV Format</h2>
+            <p style={{ fontSize: 12, color: theme.textMuted, fontFamily: "'DM Mono', monospace" }}>Different countries expect different resume formats</p>
+          </div>
+          <button onClick={onCancel} style={{ background: "none", border: "none", color: theme.textMuted, fontSize: 22, cursor: "pointer", lineHeight: 1, padding: "0 2px", flexShrink: 0, marginLeft: 12 }}>×</button>
+        </div>
+
+        {/* Detected location banner */}
+        {detectedLocation && (
+          <div style={{
+            background: isDark ? "#052e1a" : "#F0FDF4",
+            border: "1px solid #16a34a40", borderRadius: 10, padding: "10px 14px",
+            marginBottom: 14, display: "flex", alignItems: "center", gap: 10,
+          }}>
+            <span style={{ fontSize: 16 }}>📍</span>
+            <p style={{ fontSize: 12, color: isDark ? "#4ade80" : "#15803d", fontFamily: "'DM Mono', monospace", lineHeight: 1.5 }}>
+              We detected this role is based in <strong>{detectedLocation.country}</strong>. Format pre-selected.
+            </p>
+          </div>
+        )}
+
+        {/* Country grid — 3 columns */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 14 }}>
+          {COUNTRIES.map(c => {
+            const sel = selectedCountry === c.code;
+            return (
+              <button
+                key={c.code}
+                onClick={() => onSelectCountry(c.code)}
+                style={{
+                  background: sel ? theme.accent + "12" : theme.cardAlt,
+                  border: `2px solid ${sel ? theme.accent : theme.border}`,
+                  borderRadius: 10, padding: "10px 6px", cursor: "pointer",
+                  textAlign: "center", transition: "all 0.15s",
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                }}
+              >
+                <span style={{ fontSize: 20 }}>{c.flag}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: sel ? theme.accent : theme.textStrong, lineHeight: 1.3 }}>{c.name}</span>
+                <span style={{ fontSize: 9, color: theme.accent, fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>{c.docName}</span>
+                <span style={{ fontSize: 9, color: c.photo ? "#d97706" : theme.textMuted, fontFamily: "'DM Mono', monospace" }}>
+                  {c.photo ? "📷 Photo expected" : "✗ No photo"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Photo section — shown for photo-requiring countries */}
+        {country.photo && (
+          avatarUrl ? (
+            <div style={{
+              background: isDark ? "#052e1a" : "#F0FDF4",
+              border: "1px solid #16a34a40", borderRadius: 10, padding: "10px 14px",
+              marginBottom: 12, display: "flex", alignItems: "center", gap: 12,
+            }}>
+              <img src={avatarUrl} alt="Profile" style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", border: "2px solid #16a34a60", flexShrink: 0 }} />
+              <p style={{ fontSize: 12, color: isDark ? "#4ade80" : "#15803d", fontFamily: "'DM Mono', monospace", lineHeight: 1.5 }}>
+                ✅ Profile photo ready for {country.name} CV
+              </p>
+            </div>
+          ) : (
+            <div style={{
+              background: isDark ? "#1c1a0a" : "#fffbeb", border: "1px solid #d9770640",
+              borderRadius: 10, padding: "10px 14px", marginBottom: 12,
+              display: "flex", alignItems: "flex-start", gap: 10,
+            }}>
+              <span style={{ fontSize: 15, flexShrink: 0, marginTop: 1 }}>📸</span>
+              <div>
+                <p style={{ fontSize: 12, color: "#d97706", fontFamily: "'DM Mono', monospace", lineHeight: 1.5 }}>
+                  {`${country.name}'s CV typically includes a professional photo. You can add one in your Profile settings.`}
+                </p>
+                <button
+                  onClick={() => { onCancel(); onShowProfile(); }}
+                  style={{ background: "none", border: "none", color: theme.accent, fontSize: 11, cursor: "pointer", fontFamily: "'DM Mono', monospace", padding: 0, marginTop: 4 }}
+                >Go to Profile →</button>
+              </div>
+            </div>
+          )
+        )}
+
+        {/* Missing required fields warning */}
+        {missingRequired.length > 0 && (
+          <div style={{
+            background: isDark ? "#2d0d0d" : "#FFF5F5",
+            border: "1px solid #DC262640", borderRadius: 10,
+            padding: "10px 14px", marginBottom: 12,
+            display: "flex", alignItems: "flex-start", gap: 10,
+          }}>
+            <span style={{ fontSize: 15, flexShrink: 0, marginTop: 1 }}>⚠️</span>
+            <div>
+              <p style={{ fontSize: 12, color: "#DC2626", fontFamily: "'DM Mono', monospace", fontWeight: 700, marginBottom: 4 }}>
+                Required fields missing for {country.name}:
+              </p>
+              <ul style={{ margin: 0, paddingLeft: 16 }}>
+                {missingRequired.map(f => (
+                  <li key={f} style={{ fontSize: 11, color: isDark ? "#FCA5A5" : "#B91C1C", fontFamily: "'DM Mono', monospace", lineHeight: 1.8 }}>
+                    {labels[f] || f}
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => { onCancel(); onShowProfile(); }}
+                style={{ background: "none", border: "none", color: theme.accent, fontSize: 11, cursor: "pointer", fontFamily: "'DM Mono', monospace", padding: 0, marginTop: 6 }}
+              >Fill in Profile →</button>
+            </div>
+          </div>
+        )}
+
+        {/* Missing recommended fields nudge */}
+        {missingRecommended.length > 0 && missingRequired.length === 0 && (
+          <div style={{
+            background: isDark ? "#1c1a0a" : "#fffbeb",
+            border: "1px solid #d9770640", borderRadius: 10,
+            padding: "10px 14px", marginBottom: 12,
+            display: "flex", alignItems: "flex-start", gap: 10,
+          }}>
+            <span style={{ fontSize: 15, flexShrink: 0, marginTop: 1 }}>💡</span>
+            <div>
+              <p style={{ fontSize: 12, color: "#d97706", fontFamily: "'DM Mono', monospace", lineHeight: 1.5 }}>
+                These fields are recommended for {country.name} but not yet filled:
+              </p>
+              <ul style={{ margin: "4px 0 0", paddingLeft: 16 }}>
+                {missingRecommended.map(f => (
+                  <li key={f} style={{ fontSize: 11, color: isDark ? "#FCD34D" : "#92400E", fontFamily: "'DM Mono', monospace", lineHeight: 1.8 }}>
+                    {labels[f] || f}
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => { onCancel(); onShowProfile(); }}
+                style={{ background: "none", border: "none", color: theme.accent, fontSize: 11, cursor: "pointer", fontFamily: "'DM Mono', monospace", padding: 0, marginTop: 6 }}
+              >Add in Profile →</button>
+            </div>
+          </div>
+        )}
+
+        {/* Format note */}
+        <div style={{
+          background: isDark ? "#0F172A" : "#F8FAFC", border: `1px solid ${theme.border}`,
+          borderRadius: 10, padding: "12px 14px", marginBottom: 20,
+        }}>
+          <p style={{ fontSize: 12, color: theme.textMuted, fontFamily: "'DM Mono', monospace", lineHeight: 1.7 }}>
+            {FORMAT_NOTES[selectedCountry] || FORMAT_NOTES.GLOBAL}
+          </p>
+        </div>
+
+        {/* Action buttons */}
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={onCancel}
+            style={{
+              flex: 1, background: "transparent", border: `1px solid ${theme.border}`,
+              color: theme.textMuted, borderRadius: 10, padding: "12px 0",
+              fontSize: 14, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif",
+            }}
+          >Cancel</button>
+          <button
+            onClick={() => onConfirm(selectedCountry)}
+            style={{
+              flex: 2, background: missingRequired.length > 0 ? theme.border : theme.accent,
+              color: missingRequired.length > 0 ? theme.textMuted : theme.background,
+              border: "none", borderRadius: 10, padding: "12px 0",
+              fontSize: 14, fontWeight: 700,
+              cursor: missingRequired.length > 0 ? "not-allowed" : "pointer",
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              opacity: missingRequired.length > 0 ? 0.7 : 1,
+            }}
+            disabled={missingRequired.length > 0}
+            title={missingRequired.length > 0 ? "Fill in the required fields in your profile first" : ""}
+          >⬇ Download {country.docName} →</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Tag({ children, color }) {
   const { theme } = useTheme();
   const c = color || theme.accent;
@@ -591,24 +904,41 @@ function Jobvate({ session, onLogout, onShowHistory, onShowProfile, onShowAccoun
   const [jdUrl,              setJdUrl]              = useState("");
   const [jdUrlLoading,       setJdUrlLoading]       = useState(false);
   const [jdUrlStatus,        setJdUrlStatus]        = useState(""); // "" | "success" | "error" | "linkedin"
+  const [detectedLocation,   setDetectedLocation]   = useState(null);
+  const [selectedCountry,    setSelectedCountry]    = useState("GLOBAL");
+  const [showCountrySelector, setShowCountrySelector] = useState(false);
+  const [avatarUrl,          setAvatarUrl]          = useState(null);
+  const [profileData,        setProfileData]        = useState({});
   const fileRef = useRef();
   const jdFileRef = useRef();
 
+  // Detect country from JD whenever it changes
+  useEffect(() => {
+    const detected = extractLocationFromJD(jd);
+    setDetectedLocation(detected);
+    setSelectedCountry(detected ? detected.code : "GLOBAL");
+  }, [jd]);
+
   useEffect(() => {
     async function loadProfile() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
-        .select("base_resume, location")
+        .select("*")
         .eq("id", session.user.id)
         .single();
-      if (data?.base_resume) {
+      console.log("Profile fetched:", data);
+      console.log("Base resume:", data?.base_resume?.slice(0, 100));
+      if (error) console.error("Profile fetch error:", error);
+      if (data?.base_resume && data.base_resume.trim() !== "") {
         setProfileResume(data.base_resume);
         setResume(data.base_resume);
         setResumeSource("profile");
       } else {
         setShowWelcome(true);
       }
-      if (data?.location) setProfileLocation(data.location);
+      if (data?.location)    setProfileLocation(data.location);
+      if (data?.avatar_url)  setAvatarUrl(data.avatar_url);
+      if (data)              setProfileData(data);
     }
     loadProfile();
   }, []);
@@ -638,6 +968,19 @@ function Jobvate({ session, onLogout, onShowHistory, onShowProfile, onShowAccoun
     } catch {
       // save failure is silent — don't interrupt the user's workflow
     }
+  }
+
+  function handleOpenPDF(countryCode) {
+    setShowCountrySelector(false);
+    const c = COUNTRIES.find(ct => ct.code === countryCode);
+    const html = generateResumeHTML(
+      tailored, profileLocation, boldPhrases, selectedTemplate, jobTitle,
+      countryCode, c?.name || "Global", c?.docName || "Resume", avatarUrl || "",
+      profileData
+    );
+    const tab = window.open("", "_blank");
+    tab.document.write(html);
+    tab.document.close();
   }
 
   const sampleResume = `John Doe | john@email.com | LinkedIn: /in/johndoe
@@ -1808,6 +2151,20 @@ For each gap or neutral item in readiness_assessment, add a note field with:
             </div>
 
             <textarea value={jd} onChange={e => setJD(e.target.value)} placeholder="Paste the full job description here…" style={{ width: "100%", minHeight: 260, background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 16, color: theme.text, fontSize: 13, fontFamily: "'DM Mono', monospace", lineHeight: 1.8 }} />
+            {/* Detected location badge */}
+            {detectedLocation && (
+              <div style={{
+                display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8,
+                background: isDark ? "#052e1a" : "#F0FDF4",
+                border: "1px solid #16a34a35", borderRadius: 20,
+                padding: "4px 12px",
+              }}>
+                <span style={{ fontSize: 12 }}>📍</span>
+                <span style={{ fontSize: 11, color: isDark ? "#4ade80" : "#15803d", fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>
+                  Detected: {detectedLocation.country} · {COUNTRIES.find(c => c.code === detectedLocation.code)?.docName ?? "Resume"} format
+                </span>
+              </div>
+            )}
             <div style={{ marginTop: 12 }}>
               <input ref={jdFileRef} type="file" accept=".txt,.pdf,.doc,.docx" onChange={handleJDFile} style={{ display: "none" }} />
               <button
@@ -1870,30 +2227,41 @@ For each gap or neutral item in readiness_assessment, add a note field with:
               {/* Row 2: Template selector + Download button */}
               <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
                 <div>
-                  <p style={{ fontSize: 12, color: theme.textMuted, marginBottom: 8, fontFamily: "'DM Mono', monospace" }}>Choose Resume Template</p>
-                  <div style={{ display: "flex", gap: 10 }}>
-                    {RESUME_TEMPLATES.map(({ key, label, preview }) => (
-                      <div
-                        key={key}
-                        onClick={() => setSelectedTemplate(key)}
-                        style={{ cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}
-                      >
-                        <div style={{ width: 80, height: 100, border: `2px solid ${selectedTemplate === key ? theme.accent : theme.border}`, borderRadius: 8, overflow: "hidden", transition: "border-color 0.15s" }}>
-                          {preview}
-                        </div>
-                        <span style={{ fontSize: 10, color: selectedTemplate === key ? theme.accent : theme.textMuted, fontFamily: "'DM Mono', monospace", fontWeight: selectedTemplate === key ? 700 : 400, letterSpacing: "0.04em" }}>{label}</span>
+                  {["GB","IE","DE","NL","FI","SG","AU","NZ"].includes(selectedCountry) ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", background: isDark ? "#0D1F3C" : "#EFF6FF", border: `1px solid ${isDark ? "#1B3A6A" : "#BFDBFE"}`, borderRadius: 10 }}>
+                      <span style={{ fontSize: 18 }}>{COUNTRIES.find(c => c.code === selectedCountry)?.flag}</span>
+                      <div>
+                        <p style={{ fontSize: 11, color: isDark ? "#93C5FD" : "#1E40AF", fontFamily: "'DM Mono', monospace", fontWeight: 700, margin: 0 }}>
+                          {COUNTRIES.find(c => c.code === selectedCountry)?.docName} Format
+                        </p>
+                        <p style={{ fontSize: 10, color: theme.textMuted, fontFamily: "'DM Mono', monospace", margin: 0 }}>
+                          Regional template · layout auto-applied
+                        </p>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p style={{ fontSize: 12, color: theme.textMuted, marginBottom: 8, fontFamily: "'DM Mono', monospace" }}>Choose Resume Template</p>
+                      <div style={{ display: "flex", gap: 10 }}>
+                        {RESUME_TEMPLATES.map(({ key, label, preview }) => (
+                          <div
+                            key={key}
+                            onClick={() => setSelectedTemplate(key)}
+                            style={{ cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}
+                          >
+                            <div style={{ width: 80, height: 100, border: `2px solid ${selectedTemplate === key ? theme.accent : theme.border}`, borderRadius: 8, overflow: "hidden", transition: "border-color 0.15s" }}>
+                              {preview}
+                            </div>
+                            <span style={{ fontSize: 10, color: selectedTemplate === key ? theme.accent : theme.textMuted, fontFamily: "'DM Mono', monospace", fontWeight: selectedTemplate === key ? 700 : 400, letterSpacing: "0.04em" }}>{label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
                 <button
                   className="btn-primary"
-                  onClick={() => {
-                    const html = generateResumeHTML(tailored, profileLocation, boldPhrases, selectedTemplate, jobTitle);
-                    const tab = window.open("", "_blank");
-                    tab.document.write(html);
-                    tab.document.close();
-                  }}
+                  onClick={() => setShowCountrySelector(true)}
                   style={{ background: theme.accent, color: theme.background, border: "none", borderRadius: 10, padding: "12px 22px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                 >
                   ⬇ Preview &amp; Download PDF
@@ -2099,6 +2467,20 @@ For each gap or neutral item in readiness_assessment, add a note field with:
 
         <p style={{ textAlign: "center", fontSize: 11, color: theme.textFaint, marginTop: 48, fontFamily: "'DM Mono', monospace" }}>© 2026 Jobvate · All rights reserved</p>
       </div>
+
+      {/* Country selector modal */}
+      {showCountrySelector && (
+        <CountrySelectorModal
+          detectedLocation={detectedLocation}
+          selectedCountry={selectedCountry}
+          onSelectCountry={setSelectedCountry}
+          onConfirm={handleOpenPDF}
+          onCancel={() => setShowCountrySelector(false)}
+          onShowProfile={onShowProfile}
+          avatarUrl={avatarUrl}
+          profileData={profileData}
+        />
+      )}
     </div>
   );
 }
