@@ -375,36 +375,8 @@ function CountrySelectorModal({ detectedLocation, selectedCountry, onSelectCount
           )
         )}
 
-        {/* Missing required fields warning */}
-        {missingRequired.length > 0 && (
-          <div style={{
-            background: isDark ? "#2d0d0d" : "#FFF5F5",
-            border: "1px solid #DC262640", borderRadius: 10,
-            padding: "10px 14px", marginBottom: 12,
-            display: "flex", alignItems: "flex-start", gap: 10,
-          }}>
-            <span style={{ fontSize: 15, flexShrink: 0, marginTop: 1 }}>⚠️</span>
-            <div>
-              <p style={{ fontSize: 12, color: "#DC2626", fontFamily: "'DM Mono', monospace", fontWeight: 700, marginBottom: 4 }}>
-                Required fields missing for {country.name}:
-              </p>
-              <ul style={{ margin: 0, paddingLeft: 16 }}>
-                {missingRequired.map(f => (
-                  <li key={f} style={{ fontSize: 11, color: isDark ? "#FCA5A5" : "#B91C1C", fontFamily: "'DM Mono', monospace", lineHeight: 1.8 }}>
-                    {labels[f] || f}
-                  </li>
-                ))}
-              </ul>
-              <button
-                onClick={() => { onCancel(); onShowProfile(); }}
-                style={{ background: "none", border: "none", color: theme.accent, fontSize: 11, cursor: "pointer", fontFamily: "'DM Mono', monospace", padding: 0, marginTop: 6 }}
-              >Fill in Profile →</button>
-            </div>
-          </div>
-        )}
-
-        {/* Missing recommended fields nudge */}
-        {missingRecommended.length > 0 && missingRequired.length === 0 && (
+        {/* Missing fields — amber warning only, never blocks download */}
+        {(missingRequired.length > 0 || missingRecommended.length > 0) && (
           <div style={{
             background: isDark ? "#1c1a0a" : "#fffbeb",
             border: "1px solid #d9770640", borderRadius: 10,
@@ -412,21 +384,24 @@ function CountrySelectorModal({ detectedLocation, selectedCountry, onSelectCount
             display: "flex", alignItems: "flex-start", gap: 10,
           }}>
             <span style={{ fontSize: 15, flexShrink: 0, marginTop: 1 }}>💡</span>
-            <div>
-              <p style={{ fontSize: 12, color: "#d97706", fontFamily: "'DM Mono', monospace", lineHeight: 1.5 }}>
-                These fields are recommended for {country.name} but not yet filled:
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: 12, color: "#d97706", fontFamily: "'DM Mono', monospace", fontWeight: 700, marginBottom: 4 }}>
+                For the best {country.name} {country.docName}, consider adding:
               </p>
-              <ul style={{ margin: "4px 0 0", paddingLeft: 16 }}>
-                {missingRecommended.map(f => (
+              <ul style={{ margin: "0 0 6px", paddingLeft: 16 }}>
+                {[...missingRequired, ...missingRecommended.filter(f => !missingRequired.includes(f))].map(f => (
                   <li key={f} style={{ fontSize: 11, color: isDark ? "#FCD34D" : "#92400E", fontFamily: "'DM Mono', monospace", lineHeight: 1.8 }}>
                     {labels[f] || f}
                   </li>
                 ))}
               </ul>
+              <p style={{ fontSize: 11, color: isDark ? "#a16207" : "#78350f", fontFamily: "'DM Mono', monospace", lineHeight: 1.5, marginBottom: 6 }}>
+                These sections will be omitted from your CV if not filled.
+              </p>
               <button
                 onClick={() => { onCancel(); onShowProfile(); }}
-                style={{ background: "none", border: "none", color: theme.accent, fontSize: 11, cursor: "pointer", fontFamily: "'DM Mono', monospace", padding: 0, marginTop: 6 }}
-              >Add in Profile →</button>
+                style={{ background: "none", border: "none", color: theme.accent, fontSize: 11, cursor: "pointer", fontFamily: "'DM Mono', monospace", padding: 0 }}
+              >Update Profile →</button>
             </div>
           </div>
         )}
@@ -454,16 +429,11 @@ function CountrySelectorModal({ detectedLocation, selectedCountry, onSelectCount
           <button
             onClick={() => onConfirm(selectedCountry)}
             style={{
-              flex: 2, background: missingRequired.length > 0 ? theme.border : theme.accent,
-              color: missingRequired.length > 0 ? theme.textMuted : theme.background,
+              flex: 2, background: theme.accent, color: theme.background,
               border: "none", borderRadius: 10, padding: "12px 0",
-              fontSize: 14, fontWeight: 700,
-              cursor: missingRequired.length > 0 ? "not-allowed" : "pointer",
+              fontSize: 14, fontWeight: 700, cursor: "pointer",
               fontFamily: "'Plus Jakarta Sans', sans-serif",
-              opacity: missingRequired.length > 0 ? 0.7 : 1,
             }}
-            disabled={missingRequired.length > 0}
-            title={missingRequired.length > 0 ? "Fill in the required fields in your profile first" : ""}
           >⬇ Download {country.docName} →</button>
         </div>
       </div>

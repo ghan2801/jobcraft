@@ -198,7 +198,9 @@ export default function Profile({ session, onBack, onLogout }) {
   useEffect(() => { fetchProfile(); }, []);
 
   async function fetchProfile() {
-    const { data } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
+    console.log("Loaded profile:", data);
+    if (error) console.error("Profile load error:", error);
     if (data) {
       setFullName(data.full_name    || "");
       setPhone(data.phone           || "");
@@ -267,7 +269,8 @@ export default function Profile({ session, onBack, onLogout }) {
 
   async function handleSave() {
     setSaving(true);
-    await supabase.from("profiles").upsert({
+    console.log("Saving profile with:", { date_of_birth: dateOfBirth, nationality, visa_status: visaStatus, marital_status: maritalStatus, signature_city: signatureCity, languages, referee_1_name: ref1Name, referee_2_name: ref2Name });
+    const { error: saveError } = await supabase.from("profiles").upsert({
       id:                    session.user.id,
       email:                 session.user.email,
       full_name:             fullName,
@@ -295,6 +298,7 @@ export default function Profile({ session, onBack, onLogout }) {
       referee_2_relationship:ref2Rel,
       updated_at:            new Date().toISOString(),
     });
+    if (saveError) console.error("Profile save error:", saveError);
     setSaving(false); setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   }
