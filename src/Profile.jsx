@@ -130,11 +130,11 @@ function RefereeBlock({ n, fields, onChange }) {
         Referee {n}
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 20px" }}>
-        <Field label="Full Name"    value={fields[`${pfx}Name`]}    onChange={v => onChange(`${pfx}Name`, v)}    placeholder="Jane Smith" />
-        <Field label="Job Title"    value={fields[`${pfx}Title`]}   onChange={v => onChange(`${pfx}Title`, v)}   placeholder="Engineering Manager" />
-        <Field label="Company"      value={fields[`${pfx}Company`]} onChange={v => onChange(`${pfx}Company`, v)} placeholder="Acme Corp" />
-        <Field label="Email"        value={fields[`${pfx}Email`]}   onChange={v => onChange(`${pfx}Email`, v)}   placeholder="jane@acme.com" type="email" />
-        <Field label="Phone"        value={fields[`${pfx}Phone`]}   onChange={v => onChange(`${pfx}Phone`, v)}   placeholder="+61 400 000 000" />
+        <Field label="Full Name"    value={fields[`${pfx}Name`]}    onChange={v => onChange(`${pfx}Name`, v)}    placeholder="e.g. Jane Smith" />
+        <Field label="Job Title"    value={fields[`${pfx}Title`]}   onChange={v => onChange(`${pfx}Title`, v)}   placeholder="e.g. Senior Manager" />
+        <Field label="Company"      value={fields[`${pfx}Company`]} onChange={v => onChange(`${pfx}Company`, v)} placeholder="e.g. Accenture" />
+        <Field label="Email"        value={fields[`${pfx}Email`]}   onChange={v => onChange(`${pfx}Email`, v)}   placeholder="e.g. jane@company.com" type="email" />
+        <Field label="Phone"        value={fields[`${pfx}Phone`]}   onChange={v => onChange(`${pfx}Phone`, v)}   placeholder="e.g. +44 7700 900000" />
         <Select label="Relationship" value={fields[`${pfx}Rel`]} onChange={v => onChange(`${pfx}Rel`, v)} options={REFEREE_RELS} />
       </div>
     </div>
@@ -485,10 +485,10 @@ export default function Profile({ session, onBack, onLogout }) {
 
                   {/* Contact fields */}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
-                    <Field label="Full Name"    value={fullName}  onChange={setFullName}  placeholder="Ghanshyam Rajput" />
-                    <Field label="Phone"        value={phone}     onChange={setPhone}     placeholder="+91 98765 43210" />
-                    <Field label="Location / Address" value={location} onChange={setLocation} placeholder="Pune, India" />
-                    <Field label="LinkedIn URL" value={linkedin}  onChange={setLinkedin}  placeholder="linkedin.com/in/yourname" />
+                    <Field label="Full Name"    value={fullName}  onChange={setFullName}  placeholder="e.g. John Smith" />
+                    <Field label="Phone"        value={phone}     onChange={setPhone}     placeholder="e.g. +1 234 567 8900" />
+                    <Field label="Location / Address" value={location} onChange={setLocation} placeholder="e.g. London, United Kingdom" />
+                    <Field label="LinkedIn URL" value={linkedin}  onChange={setLinkedin}  placeholder="e.g. linkedin.com/in/johnsmith" />
                     <div style={{ gridColumn: "1 / -1" }}>
                       <Field label="Email" value={session.user.email} onChange={() => {}} readOnly />
                     </div>
@@ -556,11 +556,11 @@ export default function Profile({ session, onBack, onLogout }) {
                         onBlur={e   => { e.target.style.borderColor = theme.border; }}
                       />
                     </div>
-                    <Field label="Nationality" value={nationality} onChange={setNationality} placeholder="e.g. Indian, British" />
-                    <Field label="Visa / Work Status" value={visaStatus} onChange={setVisaStatus} placeholder="e.g. EU Citizen, Skilled Worker Visa, PR" />
+                    <Field label="Nationality" value={nationality} onChange={setNationality} placeholder="e.g. British, Indian, German" />
+                    <Field label="Visa / Work Status" value={visaStatus} onChange={setVisaStatus} placeholder="e.g. EU Citizen, Skilled Worker Visa, Open Work Permit" />
                     <Select label="Marital Status (optional)" value={maritalStatus} onChange={setMaritalStatus} options={MARITAL_OPTIONS} />
                     <div style={{ gridColumn: "1 / -1" }}>
-                      <Field label="City for Signature" value={signatureCity} onChange={setSignatureCity} placeholder="e.g. Pune, Dublin" />
+                      <Field label="City for Signature" value={signatureCity} onChange={setSignatureCity} placeholder="e.g. Berlin, Dublin, London" />
                       <p style={{ fontSize: 11, color: theme.textFaint, fontFamily: "'DM Mono', monospace", marginTop: -12, marginBottom: 18 }}>
                         Used in the signature block of German CVs
                       </p>
@@ -665,7 +665,7 @@ export default function Profile({ session, onBack, onLogout }) {
         )}
 
         <p style={{ textAlign: "center", fontSize: 11, color: theme.textFaint, marginTop: 48, fontFamily: "'DM Mono', monospace" }}>
-          Jobvate · Built by Ghanshyam · Powered by Claude
+          © 2026 Jobvate · All rights reserved
         </p>
       </div>
     </div>

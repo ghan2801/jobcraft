@@ -132,7 +132,7 @@ function DeleteModal({ onClose, theme, isDark }) {
         <div style={{ background: isDark ? "#1c0a0a" : "#fef2f2", border: "1px solid #fca5a5", borderRadius: 10, padding: "16px 18px", marginBottom: 20 }}>
           <p style={{ fontSize: 13, color: "#DC2626", fontFamily: "'DM Mono', monospace", lineHeight: 1.6 }}>
             To delete your account, please contact us at{" "}
-            <strong>ghanshyamrajput84@gmail.com</strong>{" "}
+            <strong>support@jobvate.com</strong>{" "}
             with the subject "Delete my account". We'll process it within 24 hours.
           </p>
         </div>
@@ -319,7 +319,7 @@ export default function AccountSettings({ session, onBack, onLogout }) {
             <SectionCard title="👤 Personal Information">
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
                 <Field label="Full Name"    value={fullName}  onChange={setFullName}  placeholder="Your full name" />
-                <Field label="Phone"        value={phone}     onChange={setPhone}     placeholder="+91 98765 43210" />
+                <Field label="Phone"        value={phone}     onChange={setPhone}     placeholder="e.g. +1 234 567 8900" />
                 <Field label="Location"     value={location}  onChange={setLocation}  placeholder="City, Country" />
                 <Field label="LinkedIn URL" value={linkedin}  onChange={setLinkedin}  placeholder="linkedin.com/in/yourname" />
               </div>
@@ -328,7 +328,7 @@ export default function AccountSettings({ session, onBack, onLogout }) {
                 value={session.user.email}
                 onChange={() => {}}
                 disabled
-                note="To change your email, contact ghanshyamrajput84@gmail.com"
+                note="To change your email, contact support@jobvate.com"
               />
               <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 8 }}>
                 <button
@@ -452,7 +452,7 @@ export default function AccountSettings({ session, onBack, onLogout }) {
         )}
 
         <p style={{ textAlign: "center", fontSize: 11, color: theme.textFaint, marginTop: 48, fontFamily: "'DM Mono', monospace" }}>
-          Jobvate · Built by Ghanshyam · Powered by Claude
+          © 2026 Jobvate · All rights reserved
         </p>
       </div>
     </div>

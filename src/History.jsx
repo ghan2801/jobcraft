@@ -1155,7 +1155,7 @@ STRICT SKILL MATCHING RULES for readiness_assessment:
         )}
 
         <p style={{ textAlign: "center", fontSize: 11, color: theme.textFaint, marginTop: 48, fontFamily: "'DM Mono', monospace" }}>
-          Jobvate · Built by Ghanshyam · Powered by Claude
+          © 2026 Jobvate · All rights reserved
         </p>
       </div>
     </div>
