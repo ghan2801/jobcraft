@@ -1,3 +1,5 @@
+// -- ALTER TABLE applications ADD COLUMN IF NOT EXISTS is_deleted boolean default false;
+
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "./supabaseClient";
 import { generateResumeHTML } from "./ResumeHTML";
@@ -48,12 +50,14 @@ export default function History({ session, onBack, onLogout }) {
   const [timeFilter, setTimeFilter] = useState("all");
 
   // Generate-prep-plan modal state
-  const [genModal,      setGenModal]      = useState(null);   // null | app object
-  const [genDays,       setGenDays]       = useState(null);
-  const [genHours,      setGenHours]      = useState(2);
-  const [genError,      setGenError]      = useState("");
-  const [generatingId,  setGeneratingId]  = useState(null);   // app id being generated
-  const [successToast,  setSuccessToast]  = useState("");     // "" or message
+  const [genModal,       setGenModal]       = useState(null);  // null | app object
+  const [genDays,        setGenDays]        = useState(null);
+  const [genHours,       setGenHours]       = useState(2);
+  const [genError,       setGenError]       = useState("");
+  const [generatingId,   setGeneratingId]   = useState(null); // app id being generated
+  const [successToast,   setSuccessToast]   = useState("");   // "" or message
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null); // id pending inline confirm
+  const [searchQuery,    setSearchQuery]    = useState("");
 
   useEffect(() => { fetchApps(); }, []);
 
@@ -63,9 +67,19 @@ export default function History({ session, onBack, onLogout }) {
       .from("applications")
       .select("*")
       .eq("user_id", session.user.id)
+      .or("is_deleted.eq.false,is_deleted.is.null")
       .order("created_at", { ascending: false });
     setApps(data || []);
     setLoading(false);
+  }
+
+  async function deleteApp(id) {
+    // Optimistic: remove from UI immediately
+    setApps(prev => prev.filter(a => a.id !== id));
+    setConfirmDeleteId(null);
+    await supabase.from("applications").update({ is_deleted: true }).eq("id", id);
+    setSuccessToast("Deleted");
+    setTimeout(() => setSuccessToast(""), 2500);
   }
 
   async function updateStatus(id, status) {
@@ -669,8 +683,17 @@ STRICT SKILL MATCHING RULES for readiness_assessment:
     return { total, inProgress, offers, avgAts, successRate };
   }, [filteredActive]);
 
-  // Rows shown in the table
-  const displayedApps = view === "active" ? filteredActive : archivedApps;
+  // Rows shown in the table — filtered by search query
+  const baseDisplayed = view === "active" ? filteredActive : archivedApps;
+  const displayedApps = useMemo(() => {
+    if (!searchQuery.trim()) return baseDisplayed;
+    const q = searchQuery.toLowerCase();
+    return baseDisplayed.filter(a =>
+      a.company_name?.toLowerCase().includes(q) ||
+      a.job_title?.toLowerCase().includes(q) ||
+      a.status?.toLowerCase().includes(q)
+    );
+  }, [baseDisplayed, searchQuery]);
 
   const statCards = [
     { icon: "📋", label: "Total Applied",  value: String(stats.total),                              color: theme.accent  },
@@ -913,6 +936,40 @@ STRICT SKILL MATCHING RULES for readiness_assessment:
               ))}
             </div>
 
+            {/* ── Search bar ───────────────────────────────────────────────── */}
+            <div style={{ position: "relative", marginBottom: 16 }}>
+              <span style={{
+                position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)",
+                fontSize: 15, pointerEvents: "none", opacity: 0.5,
+              }}>🔍</span>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search by company, job title or status…"
+                style={{
+                  width: "100%", background: theme.inputBg,
+                  border: `1px solid ${searchQuery ? theme.accent : theme.border}`,
+                  borderRadius: 10, padding: "10px 40px 10px 40px",
+                  color: theme.text, fontSize: 13,
+                  fontFamily: "'DM Mono', monospace",
+                  outline: "none", transition: "border-color 0.2s",
+                }}
+                onFocus={e  => { e.target.style.borderColor = theme.accent; }}
+                onBlur={e   => { e.target.style.borderColor = searchQuery ? theme.accent : theme.border; }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  style={{
+                    position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
+                    background: "none", border: "none", color: theme.textMuted,
+                    fontSize: 18, cursor: "pointer", lineHeight: 1, padding: "0 2px",
+                  }}
+                >×</button>
+              )}
+            </div>
+
             {/* ── Controls row ─────────────────────────────────────────────── */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
 
@@ -932,7 +989,7 @@ STRICT SKILL MATCHING RULES for readiness_assessment:
                   <button
                     key={key}
                     className="pill-btn"
-                    onClick={() => setView(key)}
+                    onClick={() => { setView(key); setSearchQuery(""); }}
                     style={{
                       background: view === key ? theme.accent : "transparent",
                       color:      view === key ? theme.background : theme.textMuted,
@@ -976,9 +1033,28 @@ STRICT SKILL MATCHING RULES for readiness_assessment:
               )}
             </div>
 
+            {/* ── Search result count ───────────────────────────────────────── */}
+            {searchQuery.trim() && displayedApps.length > 0 && (
+              <p style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'DM Mono', monospace", marginBottom: 10 }}>
+                Showing {displayedApps.length} of {baseDisplayed.length} application{baseDisplayed.length !== 1 ? "s" : ""}
+              </p>
+            )}
+
             {/* ── Table or empty state ─────────────────────────────────────── */}
             {displayedApps.length === 0 ? (
-              view === "active" ? (
+              searchQuery.trim() ? (
+                <div style={{ textAlign: "center", padding: "60px 24px", background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 16 }}>
+                  <div style={{ fontSize: 36, marginBottom: 12 }}>🔍</div>
+                  <p style={{ color: theme.textStrong, fontSize: 16, fontWeight: 700, marginBottom: 8 }}>
+                    No applications found for "{searchQuery}"
+                  </p>
+                  <p style={{ color: theme.textMuted, fontSize: 13, marginBottom: 16 }}>Try a different search term.</p>
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    style={{ background: theme.accent, color: theme.background, border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                  >Clear Search</button>
+                </div>
+              ) : view === "active" ? (
                 <div style={{ textAlign: "center", padding: "80px 24px", background: theme.card, border: `1px solid ${theme.border}`, borderRadius: 16 }}>
                   <div style={{ fontSize: 44, marginBottom: 16 }}>📋</div>
                   <p style={{ color: theme.textStrong, fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
@@ -1131,6 +1207,7 @@ STRICT SKILL MATCHING RULES for readiness_assessment:
                             🎯 Gen Prep
                           </button>
                         )}
+                        {/* Archive / Unarchive */}
                         <button
                           className="arch-btn"
                           title={app.is_archived ? "Unarchive" : "Archive"}
@@ -1145,6 +1222,45 @@ STRICT SKILL MATCHING RULES for readiness_assessment:
                         >
                           {app.is_archived ? "📂" : "📦"}
                         </button>
+
+                        {/* Delete — archived view only */}
+                        {view === "archived" && (
+                          confirmDeleteId === app.id ? (
+                            <>
+                              <span style={{ fontSize: 11, color: theme.textMuted, fontFamily: "'DM Mono', monospace", whiteSpace: "nowrap" }}>Sure?</span>
+                              <button
+                                onClick={() => deleteApp(app.id)}
+                                style={{
+                                  background: "#DC262618", color: "#DC2626",
+                                  border: "1px solid #DC262640", borderRadius: 7,
+                                  padding: "5px 10px", fontSize: 11, fontWeight: 700,
+                                  cursor: "pointer", fontFamily: "'DM Mono', monospace",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >Yes, Delete</button>
+                              <button
+                                onClick={() => setConfirmDeleteId(null)}
+                                style={{
+                                  background: "transparent", border: `1px solid ${theme.border}`,
+                                  color: theme.textMuted, borderRadius: 7,
+                                  padding: "5px 10px", fontSize: 11,
+                                  cursor: "pointer", fontFamily: "'DM Mono', monospace",
+                                }}
+                              >Cancel</button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmDeleteId(app.id)}
+                              style={{
+                                background: "transparent", color: "#DC2626",
+                                border: "1px solid #DC262640", borderRadius: 7,
+                                padding: "5px 9px", fontSize: 11, fontWeight: 600,
+                                cursor: "pointer", fontFamily: "'DM Mono', monospace",
+                                whiteSpace: "nowrap", flexShrink: 0,
+                              }}
+                            >🗑 Delete</button>
+                          )
+                        )}
                       </div>
                     </div>
                   );
